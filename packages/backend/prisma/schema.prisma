@@ -1,0 +1,88 @@
+// Prisma schema — notification-sharing backend
+// Run `npx prisma migrate dev --name init` to apply the initial migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SECRETARY
+  PASTOR
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique // stored in lowercase for case-insensitive comparison
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notifications Notification[] @relation("SentBy")
+  refreshTokens RefreshToken[]
+  loginAttempts LoginAttempt[]
+}
+
+model LoginAttempt {
+  id          String   @id @default(uuid())
+  username    String   // lowercase
+  success     Boolean
+  attemptedAt DateTime @default(now())
+  ipAddress   String?
+
+  user User? @relation(fields: [username], references: [username])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique // stored in lowercase for case-insensitive comparison
+  displayName String   // original capitalisation as entered by the user
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notifications Notification[]
+}
+
+model Template {
+  id        String   @id @default(uuid())
+  title     String   // up to 100 characters
+  body      String   // up to 500 characters
+  isDefault Boolean  @default(false) // default templates cannot be deleted
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  title      String    // up to 100 characters
+  body       String    // up to 500 characters
+  sentAt     DateTime  @default(now())
+  readAt     DateTime?
+  senderId   String
+  categoryId String?
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sender   User     @relation("SentBy", fields: [senderId], references: [id])
+
+  @@index([sentAt])
+  @@index([categoryId])
+  @@index([readAt])
+}

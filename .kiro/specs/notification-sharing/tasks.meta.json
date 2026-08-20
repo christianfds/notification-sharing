@@ -1,0 +1,65 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Inicializar estrutura de diretórios do monorepo": [
+      {
+        "executionId": "e8bae13b-953c-41db-88e1-9947be285cdb",
+        "chatSessionId": "sess_564e00da-250f-400c-bfbf-a80f7e189574",
+        "timestamp": 1786767823670
+      },
+      {
+        "executionId": "e8bae13b-953c-41db-88e1-9947be285cdb",
+        "chatSessionId": "sess_564e00da-250f-400c-bfbf-a80f7e189574",
+        "timestamp": 1786767982119
+      }
+    ],
+    "1.2 Configurar backend Express + TypeScript": [
+      {
+        "executionId": "e561e6ec-97d7-4da1-b230-867ab75f181d",
+        "chatSessionId": "sess_b8f290ef-0478-4c04-8c84-3f448c9e5f47",
+        "timestamp": 1786768025800
+      },
+      {
+        "executionId": "b07fb1b9-49ca-4d16-8b70-9a963314dea0",
+        "chatSessionId": "sess_5a3411b1-4b86-4aeb-8488-03df35228020",
+        "timestamp": 1786770040985
+      },
+      {
+        "executionId": "b07fb1b9-49ca-4d16-8b70-9a963314dea0",
+        "chatSessionId": "sess_5a3411b1-4b86-4aeb-8488-03df35228020",
+        "timestamp": 1786770639125
+      }
+    ],
+    "1.3 Configurar Prisma e schema do banco de dados": [
+      {
+        "executionId": "d8d89055-9254-44b7-b98b-c09765272bd2",
+        "chatSessionId": "sess_76519b19-45fb-470e-947b-8966296feea5",
+        "timestamp": 1786770684051
+      },
+      {
+        "executionId": "d8d89055-9254-44b7-b98b-c09765272bd2",
+        "chatSessionId": "sess_76519b19-45fb-470e-947b-8966296feea5",
+        "timestamp": 1786770958756
+      }
+    ],
+    "1.4 Configurar frontend React + TypeScript + Vite": [
+      {
+        "executionId": "ca9e1209-733b-43f2-86bc-acd4e4d84c4a",
+        "chatSessionId": "sess_d0a80c2f-7ac2-4d56-a8b8-8dfdddd94886",
+        "timestamp": 1786771039231
+      },
+      {
+        "executionId": "ca9e1209-733b-43f2-86bc-acd4e4d84c4a",
+        "chatSessionId": "sess_d0a80c2f-7ac2-4d56-a8b8-8dfdddd94886",
+        "timestamp": 1786771756288
+      }
+    ],
+    "1. Configurar estrutura do monorepo e infraestrutura base": [
+      {
+        "executionId": "ca9e1209-733b-43f2-86bc-acd4e4d84c4a",
+        "chatSessionId": "sess_d0a80c2f-7ac2-4d56-a8b8-8dfdddd94886",
+        "timestamp": 1786771756395
+      }
+    ]
+  }
+}

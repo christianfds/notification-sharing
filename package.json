@@ -1,0 +1,24 @@
+{
+  "name": "notification-sharing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de compartilhamento de notificações para cultos religiosos",
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=packages/backend\" \"npm run dev --workspace=packages/frontend\"",
+    "build:frontend": "npm run build --workspace=packages/frontend",
+    "build:backend": "npm run build --workspace=packages/backend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start": "node -e \"process.env.NODE_ENV='production'; require('./packages/backend/dist/server.js')\"",
+    "test": "npm run test --workspace=packages/backend && npm run test --workspace=packages/frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
