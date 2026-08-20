@@ -78,7 +78,7 @@ export default function NotificationHistory({ readAtOverrides, onReadStatusChang
     }
 
     let active = true;
-    setLoading(true);
+    if (notifications.length === 0) setLoading(true);
     setError(null);
 
     api.get<PaginatedResponse<Notification>>('/notifications', {

@@ -44,7 +44,7 @@ export default function CategoryManager({ onCategoriesChange, refreshKey = 0 }: 
   const [movingId, setMovingId] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
+    if (categories.length === 0) setLoading(true);
     try { const { data } = await api.get<Category[]>('/categories'); setCategories(data); onCategoriesChange?.(data); } catch (cause) { setError(errorMessage(cause)); } finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, [refreshKey]);

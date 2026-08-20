@@ -80,7 +80,7 @@ export default function SecretaryPage() {
   }, [socketError]);
 
   const loadData = async () => {
-    setLoading(true);
+    if (categories.length === 0 && templates.length === 0 && notifications.length === 0) setLoading(true);
     try {
       const [categoryResponse, templateResponse, notificationResponse] = await Promise.all([
         api.get<Category[]>('/categories'),

@@ -47,7 +47,7 @@ export default function TemplateManager({ onTemplatesChange, refreshKey = 0 }: T
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => { setLoading(true); try { const [templateResponse, categoryResponse] = await Promise.all([api.get<Template[]>('/templates'), api.get<Category[]>('/categories')]); setTemplates(templateResponse.data); setCategories(categoryResponse.data); onTemplatesChange?.(templateResponse.data); } catch (cause) { setError(errorMessage(cause)); } finally { setLoading(false); } };
+  const load = async () => { if (templates.length === 0 && categories.length === 0) setLoading(true); try { const [templateResponse, categoryResponse] = await Promise.all([api.get<Template[]>('/templates'), api.get<Category[]>('/categories')]); setTemplates(templateResponse.data); setCategories(categoryResponse.data); onTemplatesChange?.(templateResponse.data); } catch (cause) { setError(errorMessage(cause)); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, [refreshKey]);
   const reset = () => { setEditing(null); setValues({ title: '', body: '', categoryId: '' }); };
   const submit = async (event: FormEvent) => {
