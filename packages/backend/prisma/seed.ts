@@ -11,6 +11,7 @@
 
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 
 const prisma = new PrismaClient();
 
@@ -33,7 +34,11 @@ const DEFAULT_TEMPLATES = [
 ] as const;
 
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'Admin@123';
+const ADMIN_PASSWORD = process.env['ADMIN_INITIAL_PASSWORD'] ?? randomBytes(18).toString('base64url');
+
+if (process.env['NODE_ENV'] === 'production' && !process.env['ADMIN_INITIAL_PASSWORD']) {
+  throw new Error('ADMIN_INITIAL_PASSWORD is required when seeding production');
+}
 
 async function main(): Promise<void> {
   console.log('🌱 Starting database seed...\n');

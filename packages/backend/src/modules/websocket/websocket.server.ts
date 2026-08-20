@@ -39,6 +39,9 @@ function sendError(webSocket: WebSocket, error: unknown): void {
 }
 
 function parseMessage(data: WebSocket.RawData): { type: string; payload?: unknown } {
+  if (data.toString().length > 16 * 1024) {
+    throw new NotificationError('VALIDATION_ERROR', 'WebSocket event is too large', 400);
+  }
   let message: unknown;
   try {
     message = JSON.parse(data.toString());
@@ -96,20 +99,27 @@ export function initializeWebSocketServer(
   authService: AuthServiceClass = AuthService,
   service: NotificationService = notificationService,
 ): WsServer {
-  const webSocketServer = new WsServer({ noServer: true });
+  const webSocketServer = new WsServer({ noServer: true, maxPayload: 16 * 1024 });
 
   httpServer.on('upgrade', (request, socket, head) => {
     if (parse(request.url ?? '', true).pathname !== '/ws') return;
+    const allowedOrigin = process.env['CORS_ORIGIN'];
+    if (request.headers.origin && allowedOrigin && request.headers.origin !== allowedOrigin) {
+      socket.destroy();
+      return;
+    }
 
     webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
-      const token = getToken(request);
-      if (!token) {
-        closeWithPolicyViolation(webSocket);
-        return;
-      }
+      void (async () => {
+        const token = getToken(request);
+        if (!token) {
+          closeWithPolicyViolation(webSocket);
+          return;
+        }
 
-      try {
-        const payload = authService.validateToken(token);
+        try {
+          const payload = authService.validateToken(token);
+          await authService.validateSession(payload);
         const authenticatedWebSocket = webSocket as AuthenticatedWebSocket;
         authenticatedWebSocket.userId = payload.sub;
         authenticatedWebSocket.role = payload.role;
@@ -119,9 +129,10 @@ export function initializeWebSocketServer(
          authenticatedWebSocket.on('message', (data) => handleMessage(authenticatedWebSocket, data, service));
          authenticatedWebSocket.once('close', () => mainRoom.delete(authenticatedWebSocket));
         authenticatedWebSocket.once('error', () => mainRoom.delete(authenticatedWebSocket));
-      } catch (_error) {
-        closeWithPolicyViolation(webSocket);
-      }
+        } catch (_error) {
+          closeWithPolicyViolation(webSocket);
+        }
+      })();
     });
   });
 

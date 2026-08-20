@@ -102,7 +102,9 @@ export function createNotificationRouter({
 
   router.get('/', requireRole(UserRole.SECRETARY, UserRole.ADMIN, UserRole.PASTOR), async (req, res) => {
     try {
-      res.status(200).json(await service.listNotifications(parseListQuery(req.query as Record<string, unknown>)));
+      const filters = parseListQuery(req.query as Record<string, unknown>);
+      if (req.user!.role === UserRole.PASTOR) filters.includeDeleted = false;
+      res.status(200).json(await service.listNotifications(filters));
     } catch (error) {
       sendNotificationError(res, error);
     }
@@ -112,7 +114,7 @@ export function createNotificationRouter({
     try {
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
-      res.status(200).json(await service.getNotificationById(id));
+      res.status(200).json(await service.getNotificationById(id, req.user!.role !== UserRole.PASTOR));
     } catch (error) {
       sendNotificationError(res, error);
     }

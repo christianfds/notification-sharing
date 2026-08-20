@@ -4,8 +4,8 @@ import { AuthError, AuthService } from '../modules/auth/auth.service';
 
 const defaultAuthService = new AuthService();
 
-function createAuthMiddleware(authService: AuthService): (req: Request, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
+function createAuthMiddleware(authService: AuthService): (req: Request, res: Response, next: NextFunction) => Promise<void> {
+  return async (req, res, next) => {
     const authorization = req.get('authorization');
     const match = authorization?.match(/^Bearer\s+([^\s]+)$/i);
 
@@ -19,6 +19,7 @@ function createAuthMiddleware(authService: AuthService): (req: Request, res: Res
 
     try {
       const payload = authService.validateToken(match[1]);
+      await authService.validateSession(payload);
       req.user = { id: payload.sub, role: payload.role };
       next();
     } catch (error) {
@@ -35,7 +36,7 @@ function createAuthMiddleware(authService: AuthService): (req: Request, res: Res
 const defaultMiddleware = createAuthMiddleware(defaultAuthService);
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  defaultMiddleware(req, res, next);
+  void defaultMiddleware(req, res, next);
 }
 
 export { createAuthMiddleware };

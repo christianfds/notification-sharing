@@ -5,6 +5,21 @@ import { AccountLockedError, LoginAttemptService } from './login-attempt.service
 import { AuthError, AuthService } from './auth.service';
 
 const REFRESH_COOKIE = 'refreshToken';
+const loginRate = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_RATE_LIMIT = 20;
+const LOGIN_RATE_WINDOW_MS = 60_000;
+
+function allowLogin(ipAddress: string | undefined): boolean {
+  const key = ipAddress ?? 'unknown';
+  const now = Date.now();
+  const current = loginRate.get(key);
+  if (!current || current.resetAt <= now) {
+    loginRate.set(key, { count: 1, resetAt: now + LOGIN_RATE_WINDOW_MS });
+    return true;
+  }
+  current.count += 1;
+  return current.count <= LOGIN_RATE_LIMIT;
+}
 
 function getRefreshToken(req: Request): string | undefined {
   const cookieHeader = req.headers.cookie;
@@ -85,6 +100,10 @@ export function createAuthRouter({
     }
 
     const ipAddress = req.ip;
+    if (!allowLogin(ipAddress)) {
+      res.status(429).json({ error: 'RATE_LIMITED', message: 'Too many login attempts. Try again later.' });
+      return;
+    }
     try {
       await loginAttemptService.assertNotLocked(username);
       const tokens = await authService.login(username, password);

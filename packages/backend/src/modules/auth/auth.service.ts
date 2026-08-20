@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
@@ -46,6 +46,10 @@ function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
 }
 
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
 function durationInMilliseconds(duration: string): number {
   const match = /^(\d+)\s*(ms|s|m|h|d)$/.exec(duration.trim());
   if (!match) {
@@ -87,7 +91,7 @@ export class AuthService {
 
   public async refreshToken(refreshToken: string): Promise<AuthTokens> {
     const storedToken = await this.database.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: hashRefreshToken(refreshToken) },
       include: { user: true },
     });
 
@@ -103,17 +107,17 @@ export class AuthService {
       throw new AuthError('ACCOUNT_INACTIVE', 'User account is inactive', 403);
     }
 
+    await this.database.refreshToken.update({ where: { id: storedToken.id }, data: { revokedAt: new Date() } });
     return this.issueTokens(
       storedToken.user.id,
       storedToken.user.username,
       storedToken.user.role,
-      refreshToken,
     );
   }
 
   public async logout(refreshToken: string): Promise<void> {
     await this.database.refreshToken.updateMany({
-      where: { token: refreshToken, revokedAt: null },
+      where: { token: hashRefreshToken(refreshToken), revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }
@@ -137,28 +141,35 @@ export class AuthService {
     }
   }
 
+  public async validateSession(payload: AccessTokenPayload): Promise<void> {
+    const user = await this.database.user.findUnique({
+      where: { id: payload.sub },
+      select: { role: true, isActive: true },
+    });
+    if (!user || !user.isActive || user.role !== payload.role) {
+      throw new AuthError('INVALID_ACCESS_TOKEN', 'Invalid or expired access token');
+    }
+  }
+
   private async issueTokens(
     userId: string,
     username: string,
     role: UserRole,
-    existingRefreshToken?: string,
   ): Promise<AuthTokens> {
     const accessToken = jwt.sign(
       { sub: userId, role },
       config.jwtSecret,
       { expiresIn: durationInMilliseconds(config.accessTokenExpiresIn) / 1000 },
     );
-    const refreshToken = existingRefreshToken ?? randomBytes(32).toString('hex');
+    const refreshToken = randomBytes(32).toString('hex');
 
-    if (!existingRefreshToken) {
-      await this.database.refreshToken.create({
-        data: {
-          userId,
-          token: refreshToken,
-          expiresAt: new Date(Date.now() + durationInMilliseconds(config.refreshTokenExpiresIn)),
-        },
-      });
-    }
+    await this.database.refreshToken.create({
+      data: {
+        userId,
+        token: hashRefreshToken(refreshToken),
+        expiresAt: new Date(Date.now() + durationInMilliseconds(config.refreshTokenExpiresIn)),
+      },
+    });
 
     return {
       accessToken,

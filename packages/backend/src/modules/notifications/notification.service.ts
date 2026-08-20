@@ -52,6 +52,10 @@ export interface PaginatedNotifications {
 
 const MAX_PAGE_SIZE = 50;
 const MAX_DATE_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
+const notificationInclude = {
+  category: true,
+  sender: { select: { id: true, username: true, role: true } },
+} as const;
 
 function validateContent(value: unknown, field: 'body', maximum: number): string {
   if (typeof value !== 'string' || value.length < 1 || value.length > maximum || !/\S/.test(value)) {
@@ -150,10 +154,10 @@ export class NotificationService {
       ...(input.includeDeleted ? {} : { deletedAt: null }),
       ...(from || to ? { sentAt } : {}),
     };
-    const [data, total] = await Promise.all([
+      const [data, total] = await Promise.all([
       this.database.notification.findMany({
         where,
-        include: { category: true, sender: true },
+        include: notificationInclude,
         orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -164,10 +168,10 @@ export class NotificationService {
     return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
-  public async getNotificationById(id: string) {
-    const notification = await this.database.notification.findUnique({
-      where: { id },
-      include: { category: true, sender: true },
+  public async getNotificationById(id: string, includeDeleted = false) {
+    const notification = await this.database.notification.findFirst({
+      where: { id, ...(includeDeleted ? {} : { deletedAt: null }) },
+      include: notificationInclude,
     });
     if (!notification) {
       throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
@@ -189,7 +193,7 @@ export class NotificationService {
       return await this.database.notification.update({
         where: { id },
         data: { body, categoryId: input.categoryId },
-        include: { category: true, sender: true },
+        include: notificationInclude,
       });
     } catch (error) {
       if (isPrismaError(error, 'P2025')) {
@@ -215,7 +219,7 @@ export class NotificationService {
       return await this.database.notification.update({
         where: { id },
         data: { deletedAt: null },
-        include: { category: true, sender: true },
+        include: notificationInclude,
       });
     } catch (error) {
       if (isPrismaError(error, 'P2025')) {
@@ -228,12 +232,12 @@ export class NotificationService {
   public async markAsRead(id: string) {
     const readAt = new Date();
     const result = await this.database.notification.updateMany({
-      where: { id, readAt: null },
+      where: { id, readAt: null, deletedAt: null },
       data: { readAt },
     });
     if (result.count > 0) return this.getNotificationById(id);
 
-    const notification = await this.database.notification.findUnique({ where: { id } });
+    const notification = await this.database.notification.findFirst({ where: { id, deletedAt: null } });
     if (!notification) {
       throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
     }
@@ -241,7 +245,7 @@ export class NotificationService {
   }
 
   public async setReadStatus(id: string, read: boolean) {
-    const notification = await this.database.notification.findUnique({ where: { id } });
+    const notification = await this.database.notification.findFirst({ where: { id, deletedAt: null } });
     if (!notification) {
       throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
     }
@@ -254,7 +258,7 @@ export class NotificationService {
       return this.database.notification.update({
         where: { id },
         data: { readAt: null },
-        include: { category: true, sender: true },
+        include: notificationInclude,
       });
     }
 
