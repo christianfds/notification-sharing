@@ -25,7 +25,7 @@ export default function TemplateSelector({
         <option value="">Começar do zero</option>
         {templates.map((template) => (
           <option key={template.id} value={template.id}>
-            {template.title}{template.isDefault ? ' · padrão' : ''}
+            {template.title}{template.category ? ` · ${template.category.displayName}` : ''}{template.isDefault ? ' · padrão' : ''}
           </option>
         ))}
       </select>

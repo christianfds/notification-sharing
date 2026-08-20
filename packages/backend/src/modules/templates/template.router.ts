@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 
 import authMiddleware from '../../middleware/auth.middleware';
 import requireRole from '../../middleware/role.middleware';
+import { broadcastTemplateChanged } from '../websocket/websocket.server';
 import templateService, {
   TemplateError,
   TemplateService,
@@ -23,7 +24,7 @@ function parseCreateBody(body: unknown): CreateTemplateInput {
     throw validationError('Template title and body are required');
   }
 
-  return { title: body.title, body: body.body };
+   return { title: body.title, body: body.body, categoryId: typeof body.categoryId === 'string' ? body.categoryId : undefined };
 }
 
 function parseUpdateBody(body: unknown): UpdateTemplateInput {
@@ -37,6 +38,10 @@ function parseUpdateBody(body: unknown): UpdateTemplateInput {
   if ('body' in body) {
     if (typeof body.body !== 'string') throw validationError('Template body must be a string');
     input.body = body.body;
+  }
+  if ('categoryId' in body) {
+    if (body.categoryId !== null && typeof body.categoryId !== 'string') throw validationError('Template category must be a string or null');
+    input.categoryId = body.categoryId as string | null;
   }
   if (Object.keys(input).length === 0) throw validationError('At least one template field is required');
 
@@ -73,7 +78,9 @@ export function createTemplateRouter({
 
   router.post('/', async (req, res) => {
     try {
-      res.status(201).json(await service.createTemplate(parseCreateBody(req.body)));
+      const template = await service.createTemplate(parseCreateBody(req.body));
+      broadcastTemplateChanged();
+      res.status(201).json(template);
     } catch (error) {
       sendTemplateError(res, error);
     }
@@ -81,7 +88,9 @@ export function createTemplateRouter({
 
   router.put('/:id', async (req, res) => {
     try {
-      res.status(200).json(await service.updateTemplate(req.params.id, parseUpdateBody(req.body)));
+      const template = await service.updateTemplate(req.params.id, parseUpdateBody(req.body));
+      broadcastTemplateChanged();
+      res.status(200).json(template);
     } catch (error) {
       sendTemplateError(res, error);
     }
@@ -90,6 +99,7 @@ export function createTemplateRouter({
   router.delete('/:id', async (req, res) => {
     try {
       await service.deleteTemplate(req.params.id);
+      broadcastTemplateChanged();
       res.status(204).send();
     } catch (error) {
       sendTemplateError(res, error);

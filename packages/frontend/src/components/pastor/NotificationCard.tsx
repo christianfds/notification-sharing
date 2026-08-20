@@ -26,7 +26,6 @@ export default function NotificationCard({ notification, onMarkRead }: Notificat
           <span className="pastor-category">{categoryName}</span>
           <time dateTime={notification.sentAt}>{formatSentAt(notification.sentAt)}</time>
         </div>
-        <h2>{notification.title}</h2>
         <p>{notification.body}</p>
       </div>
       {isUnread && onMarkRead && (

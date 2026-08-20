@@ -35,11 +35,12 @@ export default function PastorPage({ onMarkRead }: PastorPageProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [categoryOrderRevision, setCategoryOrderRevision] = useState(0);
 
   const loadNotifications = () => {
     return api.get<PaginatedResponse<Notification>>('/notifications', { params: { pageSize: 50 } })
       .then(({ data }) => {
-        setNotifications(sortNewestFirst(data.data));
+        setNotifications(sortNewestFirst(data.data.filter((notification) => notification.readAt === null)));
         setErrorMessage(null);
       })
       .catch((error: unknown) => {
@@ -64,14 +65,40 @@ export default function PastorPage({ onMarkRead }: PastorPageProps) {
   }, []);
 
   const handleSocketEvent = (event: WSEvent) => {
+    if (event.type === 'notification:deleted') {
+      const payload = event.payload as { notificationId: string };
+      setNotifications((current) => current.filter((notification) => notification.id !== payload.notificationId));
+      return;
+    }
+    if (event.type === 'notification:restored') {
+      const incoming = event.payload as { id: string; body: string; category: Notification['category']; categoryId?: string; senderId?: string; sentAt: string; readAt: string | null };
+      if (incoming.readAt === null) {
+        setNotifications((current) => sortNewestFirst([...current.filter((notification) => notification.id !== incoming.id), { ...incoming, categoryId: incoming.categoryId ?? incoming.category?.id ?? '', senderId: incoming.senderId ?? '', deletedAt: null }]));
+      }
+      return;
+    }
+    if (event.type === 'notification:updated') {
+      void loadNotifications();
+      return;
+    }
+    if (event.type === 'category:order_updated') {
+      setCategoryOrderRevision((current) => current + 1);
+      void loadNotifications();
+      return;
+    }
+    if (event.type === 'notification:status_updated') {
+      const status = event.payload as { notificationId: string; readAt: string | null };
+      if (status.readAt === null) void loadNotifications();
+      return;
+    }
     if (event.type !== 'notification:new') return;
     const incoming = event.payload as WSNotificationNew;
     setNotifications((current) => sortNewestFirst([
       ...current.filter((notification) => notification.id !== incoming.id),
-      { ...incoming, readAt: null, senderId: '', categoryId: incoming.category.id },
+      { ...incoming, readAt: null, deletedAt: null, senderId: '', categoryId: incoming.category.id },
     ]));
     if ('Notification' in window && window.Notification.permission === 'granted') {
-      new window.Notification(incoming.title, { body: incoming.body });
+      new window.Notification('Nova notificação', { body: incoming.body });
     }
     if ('vibrate' in navigator) navigator.vibrate([120, 60, 120]);
     try {
@@ -90,11 +117,7 @@ export default function PastorPage({ onMarkRead }: PastorPageProps) {
 
   const unreadCount = notifications.filter(({ readAt }) => readAt === null).length;
   const handleMarkRead = (notificationId: string) => {
-    setNotifications((current) => current.map((notification) => (
-      notification.id === notificationId && notification.readAt === null
-        ? { ...notification, readAt: new Date().toISOString() }
-        : notification
-    )));
+    setNotifications((current) => current.filter((notification) => notification.id !== notificationId));
     onMarkRead?.(notificationId);
     send('notification:read', { notificationId });
   };
@@ -126,7 +149,7 @@ export default function PastorPage({ onMarkRead }: PastorPageProps) {
         {isLoading && <p className="pastor-status">Carregando notificações...</p>}
         {errorMessage && <p className="pastor-status pastor-error" role="alert">{errorMessage}</p>}
         {!isLoading && !errorMessage && (
-          <NotificationFeed notifications={notifications} onMarkRead={handleMarkRead} />
+           <NotificationFeed notifications={notifications} onMarkRead={handleMarkRead} orderAnimationKey={categoryOrderRevision} />
         )}
       </div>
     </main>

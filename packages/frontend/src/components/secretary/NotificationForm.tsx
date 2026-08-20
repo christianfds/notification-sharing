@@ -1,11 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import type { Category } from '../../types';
 
-export const NOTIFICATION_TITLE_MAX_LENGTH = 100;
 export const NOTIFICATION_BODY_MAX_LENGTH = 500;
 
 export interface NotificationFormValues {
-  title: string;
   body: string;
   categoryId: string;
 }
@@ -33,8 +31,8 @@ export default function NotificationForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!values.title.trim() || !values.body.trim()) {
-      setError('Título e corpo são obrigatórios.');
+    if (!values.body.trim()) {
+      setError('A mensagem é obrigatória.');
       return;
     }
     if (!values.categoryId) {
@@ -54,18 +52,6 @@ export default function NotificationForm({
         </div>
         <span className="secretary-live-dot">Pronto para enviar</span>
       </div>
-      <label htmlFor="notification-title">Título</label>
-      <input
-        id="notification-title"
-        value={values.title}
-        maxLength={NOTIFICATION_TITLE_MAX_LENGTH}
-        onChange={(event) => update('title', event.target.value)}
-        placeholder="Ex.: Aniversariantes da semana"
-        disabled={disabled}
-        required
-      />
-      <div className="secretary-field-meta"><span>Obrigatório</span><span>{values.title.length}/{NOTIFICATION_TITLE_MAX_LENGTH}</span></div>
-
       <label htmlFor="notification-body">Mensagem</label>
       <textarea
         id="notification-body"
@@ -90,7 +76,7 @@ export default function NotificationForm({
         <option value="">Selecione uma categoria</option>
         {categories.map((category) => <option key={category.id} value={category.id}>{category.displayName}</option>)}
       </select>
-      {error && <p className="secretary-error" role="alert">{error}</p>}
+      {error && <p className="secretary-form-error" role="alert">{error}</p>}
       <button className="secretary-submit" type="submit" disabled={disabled || categories.length === 0}>
         {disabled ? 'Enviando...' : 'Enviar notificação'}
       </button>

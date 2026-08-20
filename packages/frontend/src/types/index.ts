@@ -21,6 +21,7 @@ export interface Category {
   id: string;
   name: string;         // lowercase (canonical)
   displayName: string;  // original capitalisation
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,14 +33,16 @@ export interface Template {
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
+  categoryId: string | null;
+  category?: Category;
 }
 
 export interface Notification {
   id: string;
-  title: string;
   body: string;
   sentAt: string;
   readAt: string | null;
+  deletedAt: string | null;
   senderId: string;
   categoryId: string;
   category?: Category;
@@ -88,7 +91,12 @@ export type WSEventType =
   | 'notification:read'
   | 'error'
   | 'ping'
-  | 'pong';
+  | 'pong'
+  | 'category:order_updated'
+  | 'notification:deleted'
+  | 'notification:restored'
+  | 'template:changed'
+  | 'notification:updated';
 
 export interface WSEvent<T = unknown> {
   type: WSEventType;
@@ -98,7 +106,6 @@ export interface WSEvent<T = unknown> {
 /** Server → Pastor / Admin */
 export interface WSNotificationNew {
   id: string;
-  title: string;
   body: string;
   category: Category;
   sentAt: string;
@@ -112,7 +119,7 @@ export interface WSNotificationSentAck {
 /** Server → Secretary / Admin — emitted after Pastor marks as read */
 export interface WSNotificationStatusUpdated {
   notificationId: string;
-  readAt: string;
+  readAt: string | null;
 }
 
 /** Client → Server — sent by Pastor / Admin */
@@ -124,4 +131,8 @@ export interface WSNotificationReadPayload {
 export interface WSErrorPayload {
   code: string;
   message: string;
+}
+
+export interface WSCategoryOrderUpdated {
+  categoryIds: string[];
 }

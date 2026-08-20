@@ -6,6 +6,10 @@ import requireRole from '../../middleware/role.middleware';
 import {
   broadcastNotificationNew,
   broadcastNotificationSentAck,
+  broadcastNotificationStatusUpdated,
+  broadcastNotificationDeleted,
+  broadcastNotificationRestored,
+  broadcastNotificationUpdated,
 } from '../websocket/websocket.server';
 import notificationService, {
   CreateNotificationInput,
@@ -24,11 +28,11 @@ function validationError(message: string): NotificationError {
 
 function parseCreateBody(body: unknown): Omit<CreateNotificationInput, 'senderId'> {
   if (!isRecord(body)) throw validationError('Request body must be an object');
-  if (typeof body.title !== 'string' || typeof body.body !== 'string' || typeof body.categoryId !== 'string') {
-    throw validationError('Notification title, body and categoryId are required');
+  if (typeof body.body !== 'string' || typeof body.categoryId !== 'string') {
+    throw validationError('Notification body and category are required');
   }
 
-  return { title: body.title, body: body.body, categoryId: body.categoryId };
+  return { body: body.body, categoryId: body.categoryId };
 }
 
 function parseQueryValue(value: unknown, name: string): string | undefined {
@@ -42,11 +46,19 @@ function parseQueryNumber(value: unknown, name: string): number | undefined {
   return parsed === undefined ? undefined : Number(parsed);
 }
 
+function parseUpdateBody(body: unknown): { body: string; categoryId: string } {
+  if (!isRecord(body) || typeof body.body !== 'string' || typeof body.categoryId !== 'string') {
+    throw validationError('Notification body and category are required');
+  }
+  return { body: body.body, categoryId: body.categoryId };
+}
+
 function parseListQuery(query: Record<string, unknown>): ListNotificationsInput {
   return {
     categoryId: parseQueryValue(query.categoryId, 'categoryId'),
     from: parseQueryValue(query.from, 'from'),
     to: parseQueryValue(query.to, 'to'),
+    includeDeleted: parseQueryValue(query.includeDeleted, 'includeDeleted') === 'true',
     page: parseQueryNumber(query.page, 'page'),
     pageSize: parseQueryNumber(query.pageSize, 'pageSize'),
   };
@@ -101,6 +113,58 @@ export function createNotificationRouter({
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
       res.status(200).json(await service.getNotificationById(id));
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  });
+
+  router.patch('/:id/read-status', requireRole(UserRole.SECRETARY, UserRole.ADMIN), async (req, res) => {
+    try {
+      if (!isRecord(req.body) || typeof req.body.read !== 'boolean') {
+        throw validationError('read must be a boolean');
+      }
+
+      const id = parseQueryValue(req.params.id, 'id');
+      if (id === undefined) throw validationError('id is required');
+      const notification = await service.setReadStatus(id, req.body.read);
+      broadcastNotificationStatusUpdated(notification.id, notification.readAt);
+      res.status(200).json(notification);
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  });
+
+  router.put('/:id', requireRole(UserRole.SECRETARY, UserRole.ADMIN), async (req, res) => {
+    try {
+      const id = parseQueryValue(req.params.id, 'id');
+      if (id === undefined) throw validationError('id is required');
+      const notification = await service.updateNotification(id, parseUpdateBody(req.body));
+      broadcastNotificationUpdated(notification.id);
+      res.status(200).json(notification);
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  });
+
+  router.delete('/:id', requireRole(UserRole.SECRETARY, UserRole.ADMIN), async (req, res) => {
+    try {
+      const id = parseQueryValue(req.params.id, 'id');
+      if (id === undefined) throw validationError('id is required');
+      await service.deleteNotification(id);
+      broadcastNotificationDeleted(id);
+      res.status(204).send();
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  });
+
+  router.patch('/:id/restore', requireRole(UserRole.SECRETARY, UserRole.ADMIN), async (req, res) => {
+    try {
+      const id = parseQueryValue(req.params.id, 'id');
+      if (id === undefined) throw validationError('id is required');
+      const notification = await service.restoreNotification(id);
+      broadcastNotificationRestored(notification);
+      res.status(200).json(notification);
     } catch (error) {
       sendNotificationError(res, error);
     }

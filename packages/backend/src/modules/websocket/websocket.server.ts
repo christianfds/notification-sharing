@@ -149,7 +149,6 @@ export function broadcastToMainRoom(
 
 export function broadcastNotificationNew(notification: {
   id: string;
-  title: string;
   body: string;
   category: unknown;
   sentAt: Date;
@@ -157,7 +156,7 @@ export function broadcastNotificationNew(notification: {
   broadcastToMainRoom(JSON.stringify({
     type: 'notification:new',
     payload: { ...notification, sentAt: notification.sentAt.toISOString() },
-  }), (webSocket) => isRole(webSocket, UserRole.PASTOR, UserRole.ADMIN));
+  }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN));
 }
 
 export function broadcastNotificationSentAck(notificationId: string, senderId: string): void {
@@ -168,11 +167,45 @@ export function broadcastNotificationSentAck(notificationId: string, senderId: s
 }
 
 export function broadcastNotificationStatusUpdated(notificationId: string, readAt: Date | null): void {
-  if (!readAt) return;
   broadcastToMainRoom(JSON.stringify({
     type: 'notification:status_updated',
-    payload: { notificationId, readAt: readAt.toISOString() },
-  }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.ADMIN));
+    payload: { notificationId, readAt: readAt?.toISOString() ?? null },
+  }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN));
+}
+
+export function broadcastCategoryOrderUpdated(categoryIds: string[]): void {
+  broadcastToMainRoom(JSON.stringify({
+    type: 'category:order_updated',
+    payload: { categoryIds },
+  }));
+}
+
+export function broadcastNotificationDeleted(notificationId: string): void {
+  broadcastToMainRoom(JSON.stringify({
+    type: 'notification:deleted',
+    payload: { notificationId },
+  }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN));
+}
+
+export function broadcastTemplateChanged(): void {
+  broadcastToMainRoom(JSON.stringify({ type: 'template:changed', payload: {} }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.ADMIN));
+}
+
+export function broadcastNotificationUpdated(notificationId: string): void {
+  broadcastToMainRoom(JSON.stringify({ type: 'notification:updated', payload: { notificationId } }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN));
+}
+
+export function broadcastNotificationRestored(notification: {
+  id: string;
+  body: string;
+  category: unknown;
+  sentAt: Date;
+  readAt: Date | null;
+}): void {
+  broadcastToMainRoom(JSON.stringify({
+    type: 'notification:restored',
+    payload: { ...notification, sentAt: notification.sentAt.toISOString() },
+  }), (webSocket) => isRole(webSocket, UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN));
 }
 
 export default initializeWebSocketServer;

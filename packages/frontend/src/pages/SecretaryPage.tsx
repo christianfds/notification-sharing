@@ -12,7 +12,7 @@ import './SecretaryPage.css';
 import useWebSocket from '../hooks/useWebSocket';
 import type { WSNotificationSentAck, WSNotificationStatusUpdated, WSErrorPayload, WSEvent } from '../types';
 
-const emptyForm: NotificationFormValues = { title: '', body: '', categoryId: '' };
+const emptyForm: NotificationFormValues = { body: '', categoryId: '' };
 
 function messageFromError(error: unknown): string {
   if (isAxiosError(error)) {
@@ -40,10 +40,18 @@ export default function SecretaryPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [metadataRefreshKey, setMetadataRefreshKey] = useState(0);
   const pendingAcks = useRef(new Map<string, { resolve: () => void; reject: (error: Error) => void }>());
   const acknowledged = useRef(new Set<string>());
 
   const handleSocketEvent = (event: WSEvent) => {
+    if (event.type === 'category:order_updated' || event.type === 'template:changed' || event.type === 'notification:updated' || event.type === 'notification:deleted' || event.type === 'notification:restored') {
+      setHistoryRefreshKey((current) => current + 1);
+      if (event.type === 'category:order_updated' || event.type === 'template:changed') setMetadataRefreshKey((current) => current + 1);
+      void loadData();
+      return;
+    }
     if (event.type === 'notification:sent_ack') {
       const payload = event.payload as WSNotificationSentAck;
       acknowledged.current.add(payload.notificationId);
@@ -52,6 +60,7 @@ export default function SecretaryPage() {
     } else if (event.type === 'notification:status_updated') {
       const payload = event.payload as WSNotificationStatusUpdated;
       setNotifications((current) => current.map((item) => item.id === payload.notificationId ? { ...item, readAt: payload.readAt } : item));
+      setHistoryRefreshKey((current) => current + 1);
     } else if (event.type === 'error') {
       const payload = event.payload as WSErrorPayload;
       for (const pending of pendingAcks.current.values()) pending.reject(new Error(payload.message));
@@ -61,6 +70,10 @@ export default function SecretaryPage() {
   };
   const { status: socketStatus, error: socketError, retry } = useWebSocket({ onEvent: handleSocketEvent });
   const readAtOverrides = new Map(notifications.map((notification) => [notification.id, notification.readAt]));
+
+  const updateReadStatus = (notificationId: string, readAt: string | null) => {
+    setNotifications((current) => current.map((notification) => notification.id === notificationId ? { ...notification, readAt } : notification));
+  };
 
   useEffect(() => {
     if (socketError) setError(socketError);
@@ -120,21 +133,24 @@ export default function SecretaryPage() {
         <div className="secretary-brand"><span className="secretary-brand-mark">NS</span><div><p>Notification Sharing</p><h1>Painel da secretaria</h1></div></div>
         <div className="secretary-user"><span><strong>{user?.username}</strong><small>Secretaria</small></span><button type="button" onClick={() => void logout()}>Sair</button></div>
       </header>
-      <section className="secretary-intro"><div><p className="secretary-kicker">Comunicação em tempo real</p><h2>Envie um aviso com clareza.</h2><p>Crie uma notificação para o pastor e acompanhe o que foi enviado nesta sessão.</p></div><div className="secretary-stat"><strong>{notifications.length}</strong><span>enviadas nesta sessão</span></div></section>
+       <section className="secretary-intro"><div><p className="secretary-kicker">Comunicação em tempo real</p><h2>Envie um aviso com clareza.</h2><p>Crie uma notificação para o pastor e acompanhe o que foi enviado nesta sessão.</p></div><div className="secretary-stats"><div className="secretary-stat"><strong>{notifications.length}</strong><span>enviadas nesta sessão</span></div><div className="secretary-stat secretary-stat-pending"><strong>{notifications.filter((notification) => notification.readAt === null).length}</strong><span>aguardando leitura</span></div></div></section>
       {error && <div className="secretary-banner secretary-error" role="alert">{error}</div>}
       {success && <div className="secretary-banner secretary-success" role="status">{success}</div>}
-      {socketStatus !== 'connected' && <div className="secretary-banner secretary-error">Conexão em tempo real indisponível. <button type="button" onClick={retry}>Tentar novamente</button></div>}
-      <div className="secretary-grid">
-        <section className="secretary-card">
-          <TemplateSelector templates={templates} selectedTemplateId={templates.find((template) => template.title === values.title && template.body === values.body)?.id} onSelect={(template) => setValues(template ? { ...values, title: template.title, body: template.body } : { ...values, title: '', body: '' })} disabled={loading || sending} />
-          <NotificationForm categories={categories} values={values} onChange={setValues} onSubmit={sendNotification} disabled={loading || sending} />
-        </section>
-        <NotificationHistory readAtOverrides={readAtOverrides} />
-      </div>
-      <div className="secretary-management-grid">
-        <section className="secretary-card"><CategoryManager /></section>
-        <section className="secretary-card"><TemplateManager /></section>
-      </div>
-    </main>
+       {socketStatus !== 'connected' && <div className="secretary-banner secretary-error">Conexão em tempo real indisponível. <button className="secretary-refresh-button" type="button" onClick={retry}>Tentar novamente</button></div>}
+       <div className="secretary-grid">
+         <section className="secretary-card">
+           <div className="secretary-card-toolbar"><div><p className="secretary-kicker">Envio</p><h2>Nova notificação</h2></div><button className="secretary-refresh-button" type="button" onClick={() => void loadData()} disabled={loading || sending}>{loading ? 'Atualizando...' : 'Atualizar'}</button></div>
+           <TemplateSelector templates={templates} selectedTemplateId={templates.find((template) => template.body === values.body && (!template.categoryId || template.categoryId === values.categoryId))?.id} onSelect={(template) => setValues(template ? { ...values, body: template.body, categoryId: template.categoryId ?? values.categoryId } : { ...values, body: '' })} disabled={loading || sending} />
+           <NotificationForm categories={categories} values={values} onChange={setValues} onSubmit={sendNotification} disabled={loading || sending} />
+         </section>
+         <section className="secretary-card"><CategoryManager refreshKey={metadataRefreshKey} onCategoriesChange={setCategories} /></section>
+       </div>
+       <div className="secretary-template-row">
+         <section className="secretary-card"><TemplateManager refreshKey={metadataRefreshKey} onTemplatesChange={setTemplates} /></section>
+       </div>
+       <div className="secretary-history-row">
+         <NotificationHistory refreshKey={historyRefreshKey} readAtOverrides={readAtOverrides} onReadStatusChange={updateReadStatus} />
+       </div>
+     </main>
   );
 }

@@ -56,7 +56,8 @@ export class CategoryService {
 
     const normalized = normalizeName(value);
     try {
-      return await this.database.category.create({ data: normalized });
+      const last = await this.database.category.aggregate({ _max: { sortOrder: true } });
+      return await this.database.category.create({ data: { ...normalized, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
     } catch (error) {
       if (isPrismaError(error, 'P2002')) {
         throw new CategoryError('CATEGORY_NAME_EXISTS', 'Category name already exists', 409);
@@ -66,7 +67,16 @@ export class CategoryService {
   }
 
   public async listCategories() {
-    return this.database.category.findMany({ orderBy: { name: 'asc' } });
+    return this.database.category.findMany({ orderBy: [{ sortOrder: 'asc' }, { displayName: 'asc' }] });
+  }
+
+  public async reorderCategories(categoryIds: string[]) {
+    const categories = await this.database.category.findMany({ where: { id: { in: categoryIds } } });
+    if (categories.length !== categoryIds.length) {
+      throw new CategoryError('CATEGORY_NOT_FOUND', 'Category not found', 404);
+    }
+    await this.database.$transaction(categoryIds.map((id, index) => this.database.category.update({ where: { id }, data: { sortOrder: index } })));
+    return this.listCategories();
   }
 
   public async updateCategory(id: string, input: CategoryInput | string) {

@@ -55,10 +55,12 @@ model Category {
   id          String   @id @default(uuid())
   name        String   @unique // stored in lowercase for case-insensitive comparison
   displayName String   // original capitalisation as entered by the user
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   notifications Notification[]
+  templates     Template[]
 }
 
 model Template {
@@ -68,14 +70,18 @@ model Template {
   isDefault Boolean  @default(false) // default templates cannot be deleted
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 }
 
 model Notification {
   id         String    @id @default(uuid())
-  title      String    // up to 100 characters
+  // Legacy field retained nullable so existing notification history is not lost.
+  title      String?
   body       String    // up to 500 characters
   sentAt     DateTime  @default(now())
   readAt     DateTime?
+  deletedAt  DateTime?
   senderId   String
   categoryId String?
 

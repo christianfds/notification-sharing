@@ -23,7 +23,6 @@ export class NotificationError extends Error {
 }
 
 export interface CreateNotificationInput {
-  title: string;
   body: string;
   categoryId: string;
   senderId: string;
@@ -35,6 +34,12 @@ export interface ListNotificationsInput {
   to?: Date | string;
   page?: number;
   pageSize?: number;
+  includeDeleted?: boolean;
+}
+
+export interface UpdateNotificationInput {
+  body: string;
+  categoryId: string;
 }
 
 export interface PaginatedNotifications {
@@ -48,7 +53,7 @@ export interface PaginatedNotifications {
 const MAX_PAGE_SIZE = 50;
 const MAX_DATE_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
 
-function validateContent(value: unknown, field: 'title' | 'body', maximum: number): string {
+function validateContent(value: unknown, field: 'body', maximum: number): string {
   if (typeof value !== 'string' || value.length < 1 || value.length > maximum || !/\S/.test(value)) {
     throw new NotificationError(
       'VALIDATION_ERROR',
@@ -87,7 +92,6 @@ export class NotificationService {
       throw new NotificationError('VALIDATION_ERROR', 'Notification fields are required', 400);
     }
 
-    const title = validateContent(input.title, 'title', 100);
     const body = validateContent(input.body, 'body', 500);
     if (typeof input.categoryId !== 'string' || input.categoryId.length === 0) {
       throw new NotificationError('VALIDATION_ERROR', 'Notification category is required', 400);
@@ -104,7 +108,6 @@ export class NotificationService {
     try {
       return await this.database.notification.create({
         data: {
-          title,
           body,
           categoryId: input.categoryId,
           senderId: input.senderId,
@@ -144,6 +147,7 @@ export class NotificationService {
     if (to) sentAt.lte = to;
     const where: Prisma.NotificationWhereInput = {
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+      ...(input.includeDeleted ? {} : { deletedAt: null }),
       ...(from || to ? { sentAt } : {}),
     };
     const [data, total] = await Promise.all([
@@ -171,6 +175,56 @@ export class NotificationService {
     return notification;
   }
 
+  public async updateNotification(id: string, input: UpdateNotificationInput) {
+    const body = validateContent(input.body, 'body', 500);
+    if (!input.categoryId) {
+      throw new NotificationError('VALIDATION_ERROR', 'Notification category is required', 400);
+    }
+    const category = await this.database.category.findUnique({ where: { id: input.categoryId } });
+    if (!category) {
+      throw new NotificationError('CATEGORY_NOT_FOUND', 'Category not found', 404);
+    }
+
+    try {
+      return await this.database.notification.update({
+        where: { id },
+        data: { body, categoryId: input.categoryId },
+        include: { category: true, sender: true },
+      });
+    } catch (error) {
+      if (isPrismaError(error, 'P2025')) {
+        throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
+      }
+      throw error;
+    }
+  }
+
+  public async deleteNotification(id: string): Promise<void> {
+    try {
+      await this.database.notification.update({ where: { id }, data: { deletedAt: new Date() } });
+    } catch (error) {
+      if (isPrismaError(error, 'P2025')) {
+        throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
+      }
+      throw error;
+    }
+  }
+
+  public async restoreNotification(id: string) {
+    try {
+      return await this.database.notification.update({
+        where: { id },
+        data: { deletedAt: null },
+        include: { category: true, sender: true },
+      });
+    } catch (error) {
+      if (isPrismaError(error, 'P2025')) {
+        throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
+      }
+      throw error;
+    }
+  }
+
   public async markAsRead(id: string) {
     const readAt = new Date();
     const result = await this.database.notification.updateMany({
@@ -184,6 +238,27 @@ export class NotificationService {
       throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
     }
     return notification;
+  }
+
+  public async setReadStatus(id: string, read: boolean) {
+    const notification = await this.database.notification.findUnique({ where: { id } });
+    if (!notification) {
+      throw new NotificationError('NOTIFICATION_NOT_FOUND', 'Notification not found', 404);
+    }
+
+    if (read && notification.readAt === null) {
+      return this.markAsRead(id);
+    }
+
+    if (!read && notification.readAt !== null) {
+      return this.database.notification.update({
+        where: { id },
+        data: { readAt: null },
+        include: { category: true, sender: true },
+      });
+    }
+
+    return this.getNotificationById(id);
   }
 }
 

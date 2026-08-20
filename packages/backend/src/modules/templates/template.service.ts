@@ -25,11 +25,13 @@ export class TemplateError extends Error {
 export interface CreateTemplateInput {
   title: string;
   body: string;
+  categoryId?: string;
 }
 
 export interface UpdateTemplateInput {
   title?: string;
   body?: string;
+  categoryId?: string | null;
 }
 
 function validateContent(value: unknown, field: 'title' | 'body', maximum: number): string {
@@ -65,11 +67,12 @@ export class TemplateService {
 
     const title = validateContent(input.title, 'title', 100);
     const body = validateContent(input.body, 'body', 500);
-    return this.database.template.create({ data: { title, body } });
+    const categoryId = await this.validateCategory(input.categoryId);
+    return this.database.template.create({ data: { title, body, categoryId }, include: { category: true } });
   }
 
   public async listTemplates() {
-    return this.database.template.findMany({ orderBy: [{ isDefault: 'desc' }, { title: 'asc' }] });
+    return this.database.template.findMany({ include: { category: true }, orderBy: [{ isDefault: 'desc' }, { title: 'asc' }] });
   }
 
   public async updateTemplate(id: string, input: UpdateTemplateInput) {
@@ -77,18 +80,26 @@ export class TemplateService {
       throw new TemplateError('VALIDATION_ERROR', 'At least one template field is required', 400);
     }
 
-    const data: { title?: string; body?: string } = {};
+    const data: { title?: string; body?: string; categoryId?: string | null } = {};
     if (input.title !== undefined) data.title = validateContent(input.title, 'title', 100);
     if (input.body !== undefined) data.body = validateContent(input.body, 'body', 500);
+    if (input.categoryId !== undefined) data.categoryId = await this.validateCategory(input.categoryId);
 
     try {
-      return await this.database.template.update({ where: { id }, data });
+      return await this.database.template.update({ where: { id }, data, include: { category: true } });
     } catch (error) {
       if (isPrismaError(error, 'P2025')) {
         throw new TemplateError('TEMPLATE_NOT_FOUND', 'Template not found', 404);
       }
       throw error;
     }
+  }
+
+  private async validateCategory(categoryId: string | null | undefined): Promise<string | null> {
+    if (!categoryId) return null;
+    const category = await this.database.category.findUnique({ where: { id: categoryId } });
+    if (!category) throw new TemplateError('VALIDATION_ERROR', 'Category not found', 400);
+    return category.id;
   }
 
   public async deleteTemplate(id: string): Promise<void> {

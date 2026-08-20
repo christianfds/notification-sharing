@@ -35,16 +35,16 @@ export default function UserForm({ user, isSubmitting = false, errorMessage, onS
   return (
     <form onSubmit={submit} style={styles.form} noValidate>
       <div style={styles.heading}><div><p style={styles.eyebrow}>{isEditing ? 'Editar cadastro' : 'Novo cadastro'}</p><h2 style={styles.title}>{isEditing ? user.username : 'Adicionar usuário'}</h2></div>{isEditing && <button type="button" onClick={onCancel} style={styles.close} aria-label="Fechar formulário">×</button>}</div>
-      <label htmlFor="admin-username">Nome de usuário</label>
-      <input id="admin-username" value={values.username} onChange={(event) => setValues({ ...values, username: event.target.value })} disabled={isSubmitting} required autoComplete="username" />
-      <label htmlFor="admin-role">Perfil</label>
-      <select id="admin-role" value={values.role} onChange={(event) => setValues({ ...values, role: event.target.value as UserRole })} disabled={isSubmitting}>
+      <label style={styles.label} htmlFor="admin-username">Nome de usuário</label>
+      <input style={styles.input} id="admin-username" value={values.username} onChange={(event) => setValues({ ...values, username: event.target.value })} disabled={isSubmitting} required autoComplete="username" />
+      <label style={styles.label} htmlFor="admin-role">Perfil</label>
+      <select style={styles.input} id="admin-role" value={values.role} onChange={(event) => setValues({ ...values, role: event.target.value as UserRole })} disabled={isSubmitting}>
         <option value={UserRole.SECRETARY}>{roleLabels[UserRole.SECRETARY]}</option>
         <option value={UserRole.PASTOR}>{roleLabels[UserRole.PASTOR]}</option>
         {isEditing && <option value={UserRole.ADMIN}>{roleLabels[UserRole.ADMIN]}</option>}
       </select>
-      <label htmlFor="admin-password">{isEditing ? 'Nova senha (opcional)' : 'Senha'}</label>
-      <input id="admin-password" type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} disabled={isSubmitting} required={!isEditing} autoComplete={isEditing ? 'new-password' : 'new-password'} />
+      <label style={styles.label} htmlFor="admin-password">{isEditing ? 'Nova senha (opcional)' : 'Senha'}</label>
+      <input style={styles.input} id="admin-password" type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} disabled={isSubmitting} required={!isEditing} autoComplete={isEditing ? 'new-password' : 'new-password'} />
       {(validationError || errorMessage) && <p role="alert" style={styles.error}>{validationError || errorMessage}</p>}
       <div style={styles.actions}><button type="button" onClick={onCancel} disabled={isSubmitting} style={styles.secondary}>Cancelar</button><button type="submit" disabled={isSubmitting} style={styles.primary}>{isSubmitting ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Criar usuário'}</button></div>
     </form>
@@ -56,6 +56,8 @@ const styles: Record<string, CSSProperties> = {
   heading: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '10px' },
   eyebrow: { margin: 0, color: '#5c7180', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' },
   title: { margin: '5px 0 0', color: '#17212b', fontSize: '1.35rem' },
+  label: { color: '#33444f', fontSize: '0.85rem', fontWeight: 700 },
+  input: { boxSizing: 'border-box', width: '100%', padding: '10px 11px', border: '1px solid #cbd8d3', borderRadius: '8px', background: '#fff', color: '#17212b', font: 'inherit' },
   close: { border: 0, background: 'transparent', color: '#64747d', fontSize: '1.7rem', lineHeight: 1, cursor: 'pointer' },
   error: { margin: '5px 0', padding: '10px 12px', borderRadius: '7px', background: '#fff0f0', color: '#a32929', fontSize: '0.9rem' },
   actions: { display: 'flex', justifyContent: 'flex-end', gap: '9px', marginTop: '10px', flexWrap: 'wrap' },

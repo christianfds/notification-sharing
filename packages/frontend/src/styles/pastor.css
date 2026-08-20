@@ -5,7 +5,7 @@
 }
 
 .pastor-page { min-height: 100vh; padding: 48px 24px; background: radial-gradient(circle at top right, #dceee6, #f4f7f5 45%); }
-.pastor-shell { max-width: 920px; margin: auto; }
+.pastor-shell { max-width: 1380px; margin: auto; }
 .pastor-header { display: flex; justify-content: space-between; gap: 24px; align-items: start; }
 .pastor-eyebrow, .pastor-summary-label { margin: 0 0 10px; color: #4c746b; font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .pastor-header h1 { margin: 0; color: #173d39; font-family: Georgia, serif; font-size: clamp(2.25rem, 6vw, 4.2rem); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
@@ -17,8 +17,15 @@
 .pastor-summary-value { margin: 0; font-weight: 700; }
 .pastor-unread-summary { display: flex; align-items: center; gap: 9px; color: #4e6962; font-size: .9rem; }
 .pastor-unread-badge { display: inline-grid; min-width: 30px; height: 30px; padding: 0 8px; place-items: center; border-radius: 999px; color: #fff; background: #d2673d; font-weight: 800; }
-.pastor-notification-feed { display: grid; gap: 12px; }
-.pastor-notification-card { display: flex; justify-content: space-between; gap: 20px; padding: 22px 24px; border: 1px solid #dce7e1; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px #173d3908; }
+.pastor-notification-feed { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 360px)); gap: 18px; align-items: start; overflow-x: auto; padding-bottom: 4px; }
+.pastor-notification-group { display: grid; gap: 8px; align-content: start; }
+.pastor-category-item-moving { animation: pastor-category-shift .45s ease; }
+@keyframes pastor-category-shift { 0% { transform: translateY(8px); opacity: .65; } 100% { transform: translateY(0); opacity: 1; } }
+.pastor-notification-group-list { display: grid; gap: 14px; align-content: start; }
+.pastor-notification-group-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px; }
+.pastor-notification-group-heading h2 { margin: 0; color: #315a52; font-size: 1rem; }
+.pastor-notification-group-heading span { color: #7b908a; font-size: .8rem; }
+.pastor-notification-card { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border: 1px solid #dce7e1; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px #173d3908; }
 .pastor-notification-card.is-unread { border-color: #a8d1bf; box-shadow: 0 8px 26px #3d866322; }
 .pastor-notification-card.is-unread h2 { color: #173d39; }
 .pastor-notification-content { min-width: 0; }
@@ -26,7 +33,7 @@
 .pastor-category { padding: 4px 9px; border-radius: 999px; color: #397263; background: #e5f3ec; font-weight: 800; }
 .pastor-notification-card h2 { margin: 13px 0 7px; color: #4d625d; font-size: 1.1rem; }
 .pastor-notification-card p { margin: 0; color: #637873; line-height: 1.55; white-space: pre-wrap; }
-.pastor-mark-read { align-self: center; flex: 0 0 auto; padding: 10px 14px; color: #fff; background: #397263; font-size: .8rem; }
+.pastor-mark-read { align-self: flex-end; flex: 0 0 auto; padding: 10px 14px; color: #fff; background: #397263; font-size: .8rem; }
 .pastor-empty-state, .pastor-status { padding: 44px 24px; border-radius: 16px; text-align: center; background: #fff; }
 .pastor-empty-icon { display: block; margin-bottom: 10px; color: #397263; font-size: 2rem; }
 .pastor-empty-state h2 { margin: 0 0 6px; font-family: Georgia, serif; font-weight: 500; }
@@ -40,5 +47,5 @@
   .pastor-logout { align-self: flex-start; }
   .pastor-summary { margin-top: 30px; padding: 16px; }
   .pastor-notification-card { flex-direction: column; padding: 18px; }
-  .pastor-mark-read { align-self: flex-start; }
+  .pastor-mark-read { align-self: flex-end; }
 }

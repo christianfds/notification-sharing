@@ -6,6 +6,8 @@ import ReadStatusBadge from './ReadStatusBadge';
 
 interface NotificationHistoryProps {
   readAtOverrides?: ReadonlyMap<string, string | null>;
+  onReadStatusChange?: (notificationId: string, readAt: string | null) => void;
+  refreshKey?: number;
 }
 
 const PAGE_SIZE = 50;
@@ -35,7 +37,7 @@ function dateDifferenceInDays(from: string, to: string): number {
   return (end - start) / (24 * 60 * 60 * 1000);
 }
 
-export default function NotificationHistory({ readAtOverrides }: NotificationHistoryProps) {
+export default function NotificationHistory({ readAtOverrides, onReadStatusChange, refreshKey = 0 }: NotificationHistoryProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [categoryId, setCategoryId] = useState('');
@@ -45,6 +47,10 @@ export default function NotificationHistory({ readAtOverrides }: NotificationHis
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState({ body: '', categoryId: '' });
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [isGroupedView, setIsGroupedView] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +88,7 @@ export default function NotificationHistory({ readAtOverrides }: NotificationHis
         ...(categoryId ? { categoryId } : {}),
         ...(from ? { from } : {}),
         ...(to ? { to } : {}),
+        includeDeleted: true,
       },
     })
       .then(({ data }) => {
@@ -102,12 +109,79 @@ export default function NotificationHistory({ readAtOverrides }: NotificationHis
     return () => {
       active = false;
     };
-  }, [categoryId, from, page, to]);
+  }, [categoryId, from, page, refreshKey, to]);
 
   const updateFilter = (setter: (value: string) => void, value: string) => {
     setter(value);
     setPage(1);
   };
+
+  const markUnread = async (notificationId: string) => {
+    try {
+      const { data } = await api.patch<Notification>(`/notifications/${notificationId}/read-status`, { read: false });
+      setNotifications((current) => current.map((notification) => notification.id === notificationId ? { ...notification, readAt: data.readAt } : notification));
+      onReadStatusChange?.(notificationId, data.readAt);
+    } catch (cause) {
+      setError(messageFromError(cause));
+    }
+  };
+
+  const saveEdit = async (notificationId: string) => {
+    if (!editValues.body.trim() || !editValues.categoryId) {
+      setError('A mensagem e a categoria são obrigatórias.');
+      return;
+    }
+    setSavingId(notificationId);
+    try {
+      const { data } = await api.put<Notification>(`/notifications/${notificationId}`, editValues);
+      setNotifications((current) => current.map((item) => item.id === notificationId ? data : item));
+      setEditingId(null);
+    } catch (cause) {
+      setError(messageFromError(cause));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const removeNotification = async (notificationId: string) => {
+    if (!window.confirm('Excluir esta notificação?')) return;
+    setSavingId(notificationId);
+    try {
+      await api.delete(`/notifications/${notificationId}`);
+      setNotifications((current) => current.filter((item) => item.id !== notificationId));
+    } catch (cause) {
+      setError(messageFromError(cause));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const restoreNotification = async (notificationId: string) => {
+    setSavingId(notificationId);
+    try {
+      const { data } = await api.patch<Notification>(`/notifications/${notificationId}/restore`);
+      setNotifications((current) => current.map((item) => item.id === notificationId ? data : item));
+    } catch (cause) {
+      setError(messageFromError(cause));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const renderNotification = (notification: Notification) => {
+    const readAt = readAtOverrides?.has(notification.id) ? readAtOverrides.get(notification.id) ?? null : notification.readAt;
+    return <article className={`secretary-history-item${notification.deletedAt ? ' secretary-history-item-deleted' : readAt ? '' : ' secretary-history-item-unread'}`} key={notification.id}>
+      <div className="secretary-history-top"><span className="secretary-category">{notification.category?.displayName ?? notification.category?.name ?? 'Sem categoria'}</span><time dateTime={notification.sentAt}>{formatDate(notification.sentAt)}</time></div>
+      <p>{notification.body}</p>
+      {notification.deletedAt ? <div className="secretary-read-actions"><span className="secretary-status secretary-status-deleted">Excluída</span><button className="secretary-inline-button secretary-inline-button-primary" type="button" disabled={savingId === notification.id} onClick={() => void restoreNotification(notification.id)}>Restaurar</button></div> : editingId === notification.id ? <div className="secretary-history-edit-form"><textarea value={editValues.body} maxLength={500} onChange={(event) => setEditValues({ ...editValues, body: event.target.value })} /><select value={editValues.categoryId} onChange={(event) => setEditValues({ ...editValues, categoryId: event.target.value })}>{categories.map((category) => <option key={category.id} value={category.id}>{category.displayName}</option>)}</select><div className="secretary-read-actions"><button className="secretary-inline-button secretary-inline-button-primary" type="button" disabled={savingId === notification.id} onClick={() => void saveEdit(notification.id)}>Salvar</button><button className="secretary-inline-button" type="button" disabled={savingId === notification.id} onClick={() => setEditingId(null)}>Cancelar</button></div></div> : <div className="secretary-read-actions"><ReadStatusBadge readAt={readAt} />{readAt && <button className="secretary-inline-button" type="button" disabled={savingId === notification.id} onClick={() => void markUnread(notification.id)}>Marcar como não lida</button>}<button className="secretary-inline-button" type="button" disabled={savingId === notification.id} onClick={() => { setEditingId(notification.id); setEditValues({ body: notification.body, categoryId: notification.categoryId }); }}>Editar</button><button className="secretary-inline-button secretary-inline-button-danger" type="button" disabled={savingId === notification.id} onClick={() => void removeNotification(notification.id)}>Excluir</button></div>}
+    </article>;
+  };
+
+  const groupedNotifications = [...notifications.reduce((groups, notification) => {
+    const key = notification.category?.id ?? notification.categoryId;
+    groups.set(key, [...(groups.get(key) ?? []), notification]);
+    return groups;
+  }, new Map<string, Notification[]>()).entries()].sort(([, left], [, right]) => (left[0].category?.sortOrder ?? 0) - (right[0].category?.sortOrder ?? 0));
 
   return (
     <section className="secretary-card secretary-history" aria-labelledby="notification-history-title">
@@ -115,7 +189,8 @@ export default function NotificationHistory({ readAtOverrides }: NotificationHis
         <div>
           <p className="secretary-kicker">Registro</p>
           <h2 id="notification-history-title">Histórico de notificações</h2>
-        </div>
+         </div>
+         <button className="secretary-refresh-button" type="button" onClick={() => setIsGroupedView((current) => !current)}>{isGroupedView ? 'Visão em lista' : 'Visão por categorias'}</button>
       </div>
 
       <div className="secretary-history-filters" aria-label="Filtros do histórico">
@@ -148,20 +223,7 @@ export default function NotificationHistory({ readAtOverrides }: NotificationHis
         </div>
       ) : (
         <>
-          <div className="secretary-history-list">
-            {notifications.map((notification) => (
-              <article className="secretary-history-item" key={notification.id}>
-                <div className="secretary-history-top">
-                  <span className="secretary-category">
-                    {notification.category?.displayName ?? notification.category?.name ?? 'Sem categoria'}
-                  </span>
-                  <time dateTime={notification.sentAt}>{formatDate(notification.sentAt)}</time>
-                </div>
-                <h3>{notification.title}</h3>
-                <ReadStatusBadge readAt={readAtOverrides?.has(notification.id) ? readAtOverrides.get(notification.id) ?? null : notification.readAt} />
-              </article>
-            ))}
-          </div>
+           {isGroupedView ? <div className="secretary-history-category-grid">{groupedNotifications.map(([categoryId, group]) => <section className="secretary-history-category-column" key={categoryId}><h3>{group[0].category?.displayName ?? group[0].category?.name ?? 'Sem categoria'}</h3><div className="secretary-history-list">{group.map(renderNotification)}</div></section>)}</div> : <div className="secretary-history-list">{notifications.map(renderNotification)}</div>}
           <nav className="secretary-history-pagination" aria-label="Paginação do histórico">
             <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((current) => current - 1)}>
               Anterior
