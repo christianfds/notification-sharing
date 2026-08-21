@@ -8,6 +8,7 @@ COPY packages/frontend/package.json packages/frontend/package.json
 RUN npm ci
 
 COPY . .
+RUN npx prisma generate --schema=packages/backend/prisma/schema.prisma
 RUN npm run build
 
 FROM node:20-alpine AS runtime
