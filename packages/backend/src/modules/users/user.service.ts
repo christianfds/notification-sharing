@@ -9,7 +9,8 @@ export type UserErrorCode =
   | 'INVALID_ROLE'
   | 'USERNAME_TAKEN'
   | 'USER_NOT_FOUND'
-  | 'ADMIN_SELF_DEACTIVATION';
+  | 'ADMIN_SELF_DEACTIVATION'
+  | 'SUPER_ADMIN_PROTECTED';
 
 export class UserError extends Error {
   public readonly code: UserErrorCode;
@@ -65,11 +66,11 @@ function validatePassword(password: unknown): string {
 }
 
 function validateCreatableRole(role: unknown): UserRole {
-  if (role !== UserRole.SECRETARY && role !== UserRole.PASTOR) {
-    throw new UserError('INVALID_ROLE', 'Only Secretary and Pastor users can be created', 400);
+  if (![UserRole.SECRETARY, UserRole.PASTOR, UserRole.ADMIN].includes(role as UserRole)) {
+    throw new UserError('INVALID_ROLE', 'Invalid user role', 400);
   }
 
-  return role;
+  return role as UserRole;
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -111,6 +112,7 @@ export class UserService {
           username,
           passwordHash: await bcrypt.hash(validatedPassword, config.bcryptRounds),
           role: validatedRole,
+          isSuperAdmin: false,
         },
       });
       return this.publicUser(user);
@@ -132,6 +134,11 @@ export class UserService {
       throw new UserError('VALIDATION_ERROR', 'At least one user field is required', 400);
     }
 
+    const existing = await this.database.user.findUnique({ where: { id: userId } });
+    if (!existing) throw new UserError('USER_NOT_FOUND', 'User not found', 404);
+    if (existing.isSuperAdmin && input.password !== undefined) {
+      throw new UserError('SUPER_ADMIN_PROTECTED', 'The Super Admin password cannot be changed', 422);
+    }
     const data: { username?: string; passwordHash?: string; role?: UserRole } = {};
     if (input.username !== undefined) data.username = validateUsername(input.username);
     if (input.password !== undefined) {
@@ -140,6 +147,9 @@ export class UserService {
     if (input.role !== undefined) {
       if (!Object.values(UserRole).includes(input.role)) {
         throw new UserError('INVALID_ROLE', 'Invalid user role', 400);
+      }
+      if (existing.isSuperAdmin && input.role !== UserRole.ADMIN) {
+        throw new UserError('SUPER_ADMIN_PROTECTED', 'Promote another Admin before changing the Super Admin role', 422);
       }
       data.role = input.role;
     }
@@ -169,6 +179,9 @@ export class UserService {
     const requesterId = typeof requestingUser === 'string' ? requestingUser : requestingUser?.id;
     if (!isActive && user.role === UserRole.ADMIN && requesterId === userId) {
       throw new UserError('ADMIN_SELF_DEACTIVATION', 'An Admin cannot deactivate their own account', 403);
+    }
+    if (!isActive && user.isSuperAdmin) {
+      throw new UserError('SUPER_ADMIN_PROTECTED', 'The Super Admin must be replaced before deactivation', 422);
     }
 
     const updatedUser = await this.database.user.update({ where: { id: userId }, data: { isActive } });

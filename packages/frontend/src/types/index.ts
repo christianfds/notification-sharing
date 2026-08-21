@@ -12,6 +12,7 @@ export interface User {
   id: string;
   username: string;
   role: UserRole;
+  isSuperAdmin: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

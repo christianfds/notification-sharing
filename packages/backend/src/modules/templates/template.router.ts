@@ -10,6 +10,7 @@ import templateService, {
   CreateTemplateInput,
   UpdateTemplateInput,
 } from './template.service';
+import logger from '../../lib/logger';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -79,6 +80,7 @@ export function createTemplateRouter({
   router.post('/', async (req, res) => {
     try {
       const template = await service.createTemplate(parseCreateBody(req.body));
+      logger.info('template.created', { templateId: template.id, categoryId: template.categoryId }, req.requestId);
       broadcastTemplateChanged();
       res.status(201).json(template);
     } catch (error) {
@@ -89,6 +91,7 @@ export function createTemplateRouter({
   router.put('/:id', async (req, res) => {
     try {
       const template = await service.updateTemplate(req.params.id, parseUpdateBody(req.body));
+      logger.info('template.updated', { templateId: template.id, categoryId: template.categoryId }, req.requestId);
       broadcastTemplateChanged();
       res.status(200).json(template);
     } catch (error) {
@@ -99,6 +102,7 @@ export function createTemplateRouter({
   router.delete('/:id', async (req, res) => {
     try {
       await service.deleteTemplate(req.params.id);
+      logger.info('template.deleted', { templateId: req.params.id }, req.requestId);
       broadcastTemplateChanged();
       res.status(204).send();
     } catch (error) {

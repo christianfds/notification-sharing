@@ -8,9 +8,11 @@ import userRouter from './modules/users/user.router';
 import categoryRouter from './modules/categories/category.router';
 import templateRouter from './modules/templates/template.router';
 import notificationRouter from './modules/notifications/notification.router';
+import requestIdMiddleware from './middleware/request-id.middleware';
 
 const app = express();
 
+app.use(requestIdMiddleware);
 app.use(helmet());
 app.use(cors({
   origin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',

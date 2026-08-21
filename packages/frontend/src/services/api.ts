@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, isAxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -34,7 +34,9 @@ async function refreshAccessToken(): Promise<string> {
       })
       .catch((error: unknown) => {
         setAccessToken(null);
-        authFailureHandler?.();
+        if (isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+          authFailureHandler?.();
+        }
         throw error;
       })
       .finally(() => {

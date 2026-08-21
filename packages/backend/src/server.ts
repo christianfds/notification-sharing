@@ -2,6 +2,7 @@ import http from 'http';
 import app from './app';
 import initializeWebSocketServer from './modules/websocket/websocket.server';
 import { startCleanupJob } from './jobs/cleanup.job';
+import logger from './lib/logger';
 
 // Config is imported for side-effect of dotenv.config() and validation
 // Wrap in try/catch so missing env vars produce a clear error message
@@ -11,7 +12,7 @@ try {
   const { config } = require('./config') as typeof import('./config');
   port = config.port;
 } catch (err) {
-  console.warn('Config validation skipped (env vars not set) — using default port 3001');
+  logger.warn('config.validation_skipped', { reason: 'environment_not_set' });
 }
 
 const server = http.createServer(app);
@@ -20,7 +21,7 @@ initializeWebSocketServer(server);
 startCleanupJob();
 
 server.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  logger.info('server.started', { port });
 });
 
 export default server;

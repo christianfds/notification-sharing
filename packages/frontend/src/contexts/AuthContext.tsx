@@ -1,4 +1,5 @@
 import { createContext, useEffect, useState, type ReactNode } from 'react';
+import { isAxiosError } from 'axios';
 import {
   getAccessToken,
   setAccessToken,
@@ -42,13 +43,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(refreshedUser);
         setToken(refreshedToken);
       })
-      .catch(() => {
-        clearAuth();
+      .catch((error: unknown) => {
+        if (isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+          clearAuth();
+        }
       })
       .finally(() => setIsLoading(false));
 
     return () => setAuthFailureHandler(null);
   }, []);
+
+  useEffect(() => {
+    const refreshOnForeground = () => {
+      if (document.visibilityState === 'visible' && user) {
+        void handleRefresh().catch(() => undefined);
+      }
+    };
+    window.addEventListener('focus', refreshOnForeground);
+    document.addEventListener('visibilitychange', refreshOnForeground);
+    return () => {
+      window.removeEventListener('focus', refreshOnForeground);
+      document.removeEventListener('visibilitychange', refreshOnForeground);
+    };
+  }, [user]);
 
   const handleLogin = async (credentials: LoginRequest): Promise<void> => {
     const result = await authService.login(credentials);

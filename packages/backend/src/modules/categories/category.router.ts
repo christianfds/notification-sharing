@@ -5,6 +5,7 @@ import authMiddleware from '../../middleware/auth.middleware';
 import requireRole from '../../middleware/role.middleware';
 import categoryService, { CategoryError, CategoryService } from './category.service';
 import { broadcastCategoryOrderUpdated } from '../websocket/websocket.server';
+import logger from '../../lib/logger';
 
 function sendCategoryError(res: Response, error: unknown): void {
   if (error instanceof CategoryError) {
@@ -44,6 +45,7 @@ export function createCategoryRouter({
   router.post('/', async (req, res) => {
     try {
       const category = await service.createCategory({ name: getCategoryName(req) as string });
+      logger.info('category.created', { categoryId: category.id }, req.requestId);
       broadcastCategoryOrderUpdated((await service.listCategories()).map((item) => item.id));
       res.status(201).json(category);
     } catch (error) {
@@ -57,6 +59,7 @@ export function createCategoryRouter({
         throw new CategoryError('INVALID_CATEGORY_NAME', 'categoryIds must be an array', 400);
       }
       const categories = await service.reorderCategories(req.body.categoryIds);
+      logger.info('category.order_changed', { count: categories.length }, req.requestId);
       broadcastCategoryOrderUpdated(categories.map((category) => category.id));
       res.status(200).json(categories);
     } catch (error) {
@@ -67,6 +70,7 @@ export function createCategoryRouter({
   router.put('/:id', async (req, res) => {
     try {
       const category = await service.updateCategory(req.params.id, { name: getCategoryName(req) as string });
+      logger.info('category.updated', { categoryId: category.id }, req.requestId);
       broadcastCategoryOrderUpdated((await service.listCategories()).map((item) => item.id));
       res.status(200).json(category);
     } catch (error) {
@@ -77,6 +81,7 @@ export function createCategoryRouter({
   router.delete('/:id', async (req, res) => {
     try {
       await service.deleteCategory(req.params.id);
+      logger.info('category.deleted', { categoryId: req.params.id }, req.requestId);
       broadcastCategoryOrderUpdated((await service.listCategories()).map((item) => item.id));
       res.status(204).send();
     } catch (error) {

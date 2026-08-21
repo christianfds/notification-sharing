@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+.env
+.env.*
+*.log
+coverage
+SECURITY-AUDIT.md
+.kiro
+README.md

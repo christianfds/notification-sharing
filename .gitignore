@@ -48,5 +48,8 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Private security documentation
+SECURITY-AUDIT.md
+
 # Vite
 packages/frontend/.vite/

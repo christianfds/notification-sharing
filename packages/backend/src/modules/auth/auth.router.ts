@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import { config } from '../../config';
 import { AccountLockedError, LoginAttemptService } from './login-attempt.service';
 import { AuthError, AuthService } from './auth.service';
+import logger from '../../lib/logger';
 
 const REFRESH_COOKIE = 'refreshToken';
 const loginRate = new Map<string, { count: number; resetAt: number }>();
@@ -101,6 +102,7 @@ export function createAuthRouter({
 
     const ipAddress = req.ip;
     if (!allowLogin(ipAddress)) {
+      logger.warn('auth.login.rate_limited', { username, ipAddress }, req.requestId);
       res.status(429).json({ error: 'RATE_LIMITED', message: 'Too many login attempts. Try again later.' });
       return;
     }
@@ -108,10 +110,12 @@ export function createAuthRouter({
       await loginAttemptService.assertNotLocked(username);
       const tokens = await authService.login(username, password);
       await loginAttemptService.recordSuccess(username, ipAddress);
+      logger.info('auth.login.succeeded', { username }, req.requestId);
       setRefreshCookie(res, tokens.refreshToken);
       res.status(200).json({ accessToken: tokens.accessToken, user: tokens.user });
     } catch (error) {
       if (error instanceof AccountLockedError) {
+        logger.warn('auth.login.locked_out', { username }, req.requestId);
         sendAuthError(res, error);
         return;
       }
@@ -119,7 +123,8 @@ export function createAuthRouter({
       if (error instanceof AuthError) {
         try {
           const result = await loginAttemptService.recordFailure(username, ipAddress);
-          if (result.locked) {
+            if (result.locked) {
+              logger.warn('auth.login.locked_out', { username }, req.requestId);
             sendAuthError(res, new AccountLockedError(result.retryAfterSeconds ?? 1));
             return;
           }
@@ -130,21 +135,25 @@ export function createAuthRouter({
       }
 
       sendAuthError(res, error);
+      logger.warn('auth.login.failed', { username, error: error instanceof AuthError ? error.code : 'internal' }, req.requestId);
     }
   });
 
   router.post('/refresh', async (req, res) => {
     const refreshToken = getRefreshToken(req);
     if (!refreshToken) {
+      logger.warn('auth.refresh.failed', { reason: 'missing_token' }, req.requestId);
       sendAuthError(res, new AuthError('INVALID_REFRESH_TOKEN', 'Invalid refresh token'));
       return;
     }
 
     try {
       const tokens = await authService.refreshToken(refreshToken);
+      logger.info('auth.refresh.succeeded', {}, req.requestId);
       setRefreshCookie(res, tokens.refreshToken);
       res.status(200).json({ accessToken: tokens.accessToken, user: tokens.user });
     } catch (error) {
+      logger.warn('auth.refresh.failed', { error: error instanceof AuthError ? error.code : 'internal' }, req.requestId);
       sendAuthError(res, error);
     }
   });
@@ -153,9 +162,11 @@ export function createAuthRouter({
     const refreshToken = getRefreshToken(req);
     try {
       if (refreshToken) await authService.logout(refreshToken);
+      logger.info('auth.logout.succeeded', { hadToken: Boolean(refreshToken) }, req.requestId);
       clearRefreshCookie(res);
       res.status(204).send();
     } catch (error) {
+      logger.warn('auth.logout.failed', { error: error instanceof AuthError ? error.code : 'internal' }, req.requestId);
       sendAuthError(res, error);
     }
   });

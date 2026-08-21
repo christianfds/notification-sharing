@@ -17,6 +17,7 @@ export default function UserForm({ user, isSubmitting = false, errorMessage, onS
   const [values, setValues] = useState<UserFormValues>({ username: '', password: '', role: UserRole.SECRETARY });
   const [validationError, setValidationError] = useState<string | null>(null);
   const isEditing = user !== null;
+  const isSuperAdmin = user?.isSuperAdmin === true;
 
   useEffect(() => {
     setValues({ username: user?.username ?? '', password: '', role: user?.role ?? UserRole.SECRETARY });
@@ -41,10 +42,10 @@ export default function UserForm({ user, isSubmitting = false, errorMessage, onS
       <select style={styles.input} id="admin-role" value={values.role} onChange={(event) => setValues({ ...values, role: event.target.value as UserRole })} disabled={isSubmitting}>
         <option value={UserRole.SECRETARY}>{roleLabels[UserRole.SECRETARY]}</option>
         <option value={UserRole.PASTOR}>{roleLabels[UserRole.PASTOR]}</option>
-        {isEditing && <option value={UserRole.ADMIN}>{roleLabels[UserRole.ADMIN]}</option>}
+        <option value={UserRole.ADMIN}>{roleLabels[UserRole.ADMIN]}</option>
       </select>
-      <label style={styles.label} htmlFor="admin-password">{isEditing ? 'Nova senha (opcional)' : 'Senha'}</label>
-      <input style={styles.input} id="admin-password" type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} disabled={isSubmitting} required={!isEditing} autoComplete={isEditing ? 'new-password' : 'new-password'} />
+       <label style={styles.label} htmlFor="admin-password">{isSuperAdmin ? 'Senha (protegida)' : isEditing ? 'Nova senha (opcional)' : 'Senha'}</label>
+       <input style={styles.input} id="admin-password" type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} disabled={isSubmitting || isSuperAdmin} required={!isEditing && !isSuperAdmin} autoComplete="new-password" />
       {(validationError || errorMessage) && <p role="alert" style={styles.error}>{validationError || errorMessage}</p>}
       <div style={styles.actions}><button type="button" onClick={onCancel} disabled={isSubmitting} style={styles.secondary}>Cancelar</button><button type="submit" disabled={isSubmitting} style={styles.primary}>{isSubmitting ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Criar usuário'}</button></div>
     </form>

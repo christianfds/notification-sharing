@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import authMiddleware from '../../middleware/auth.middleware';
 import requireRole from '../../middleware/role.middleware';
 import userService, { UserError, UserService } from './user.service';
+import logger from '../../lib/logger';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -17,8 +18,8 @@ function parseCreateBody(body: unknown): { username: string; password: string; r
   if (!isRecord(body) || typeof body.username !== 'string' || typeof body.password !== 'string') {
     throw validationError('Username, password and role are required');
   }
-  if (body.role !== UserRole.SECRETARY && body.role !== UserRole.PASTOR) {
-    throw new UserError('INVALID_ROLE', 'Only Secretary and Pastor users can be created', 400);
+  if (body.role !== UserRole.SECRETARY && body.role !== UserRole.PASTOR && body.role !== UserRole.ADMIN) {
+    throw new UserError('INVALID_ROLE', 'Invalid user role', 400);
   }
 
   return { username: body.username, password: body.password, role: body.role };
@@ -76,7 +77,9 @@ export function createUserRouter(service: UserService = userService): Router {
 
   router.post('/', async (req, res) => {
     try {
-      res.status(201).json(await service.createUser(parseCreateBody(req.body)));
+      const user = await service.createUser(parseCreateBody(req.body));
+      logger.info('user.created', { userId: user.id, role: user.role }, req.requestId);
+      res.status(201).json(user);
     } catch (error) {
       sendUserError(res, error);
     }
@@ -84,7 +87,9 @@ export function createUserRouter(service: UserService = userService): Router {
 
   router.put('/:id', async (req, res) => {
     try {
-      res.status(200).json(await service.updateUser(req.params.id, parseUpdateBody(req.body)));
+      const user = await service.updateUser(req.params.id, parseUpdateBody(req.body));
+      logger.info('user.updated', { userId: user.id, role: user.role }, req.requestId);
+      res.status(200).json(user);
     } catch (error) {
       sendUserError(res, error);
     }
@@ -92,11 +97,14 @@ export function createUserRouter(service: UserService = userService): Router {
 
   router.patch('/:id/status', async (req, res) => {
     try {
-      res.status(200).json(await service.setUserStatus(req.params.id, parseStatusBody(req.body), req.user!.id));
+      const user = await service.setUserStatus(req.params.id, parseStatusBody(req.body), req.user!.id);
+      logger.info('user.status_changed', { userId: user.id, isActive: user.isActive }, req.requestId);
+      res.status(200).json(user);
     } catch (error) {
       sendUserError(res, error);
     }
   });
+
 
   return router;
 }

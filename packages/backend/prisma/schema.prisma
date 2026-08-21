@@ -21,6 +21,7 @@ model User {
   username     String   @unique // stored in lowercase for case-insensitive comparison
   passwordHash String
   role         UserRole
+  isSuperAdmin Boolean  @default(false)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

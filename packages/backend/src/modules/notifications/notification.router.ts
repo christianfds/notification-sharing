@@ -17,6 +17,7 @@ import notificationService, {
   NotificationError,
   NotificationService,
 } from './notification.service';
+import logger from '../../lib/logger';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -91,6 +92,7 @@ export function createNotificationRouter({
   router.post('/', requireRole(UserRole.SECRETARY, UserRole.ADMIN), async (req, res) => {
     try {
       const created = await service.createNotification({ ...parseCreateBody(req.body), senderId: req.user!.id });
+      logger.info('notification.created', { notificationId: created.id, categoryId: created.categoryId, senderId: req.user!.id }, req.requestId);
       const persisted = await service.getNotificationById(created.id);
       broadcastNew(persisted);
       broadcastSentAck(created.id, req.user!.id);
@@ -129,6 +131,7 @@ export function createNotificationRouter({
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
       const notification = await service.setReadStatus(id, req.body.read);
+      logger.info('notification.read_status_changed', { notificationId: notification.id, read: req.body.read }, req.requestId);
       broadcastNotificationStatusUpdated(notification.id, notification.readAt);
       res.status(200).json(notification);
     } catch (error) {
@@ -141,6 +144,7 @@ export function createNotificationRouter({
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
       const notification = await service.updateNotification(id, parseUpdateBody(req.body));
+      logger.info('notification.updated', { notificationId: notification.id, categoryId: notification.categoryId }, req.requestId);
       broadcastNotificationUpdated(notification.id);
       res.status(200).json(notification);
     } catch (error) {
@@ -153,6 +157,7 @@ export function createNotificationRouter({
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
       await service.deleteNotification(id);
+      logger.info('notification.deleted', { notificationId: id }, req.requestId);
       broadcastNotificationDeleted(id);
       res.status(204).send();
     } catch (error) {
@@ -165,6 +170,7 @@ export function createNotificationRouter({
       const id = parseQueryValue(req.params.id, 'id');
       if (id === undefined) throw validationError('id is required');
       const notification = await service.restoreNotification(id);
+      logger.info('notification.restored', { notificationId: notification.id }, req.requestId);
       broadcastNotificationRestored(notification);
       res.status(200).json(notification);
     } catch (error) {

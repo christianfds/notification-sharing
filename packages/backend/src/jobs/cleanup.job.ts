@@ -1,5 +1,6 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import prisma from '../lib/prisma';
+import loggerModule from '../lib/logger';
 
 const CLEANUP_SCHEDULE = '0 0 * * *';
 
@@ -41,7 +42,7 @@ export async function runCleanup(
   const notificationCutoff = dateMonthsAgo(currentTime, 12);
   const loginAttemptCutoff = new Date(currentTime.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  logger.log('Starting scheduled cleanup');
+  logger.log('cleanup.started');
 
   try {
     const [notifications, loginAttempts] = await Promise.all([
@@ -53,10 +54,10 @@ export async function runCleanup(
       notifications: notifications.count,
       loginAttempts: loginAttempts.count,
     };
-    logger.log('Scheduled cleanup completed', result);
+    logger.log('cleanup.completed', result);
     return result;
   } catch (error) {
-    logger.error('Scheduled cleanup failed', error);
+    logger.error('cleanup.failed', { error: error instanceof Error ? error.name : 'unknown' });
     throw error;
   }
 }
@@ -65,12 +66,19 @@ export async function runCleanup(
 export function createCleanupJob(options: CleanupJobOptions = {}): ScheduledTask {
   const database = options.database ?? prisma;
   const schedule = options.schedule ?? ((expression, task) => cron.schedule(expression, task));
-  const logger = options.logger ?? console;
+  const logger: CleanupLogger = options.logger ?? {
+    log: (...data: unknown[]) => loggerModule.info(typeof data[0] === 'string' ? data[0] : 'cleanup.log', isMetadata(data[1]) ? data[1] : undefined),
+    error: (...data: unknown[]) => loggerModule.error(typeof data[0] === 'string' ? data[0] : 'cleanup.error', isMetadata(data[1]) ? data[1] : undefined),
+  };
   const now = options.now ?? (() => new Date());
 
   return schedule(CLEANUP_SCHEDULE, async () => {
     await runCleanup(database, now, logger);
   });
+}
+
+function isMetadata(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 let cleanupJob: ScheduledTask | undefined;

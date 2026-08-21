@@ -5,6 +5,7 @@ import WebSocket, { WebSocketServer as WsServer } from 'ws';
 
 import AuthService, { AuthService as AuthServiceClass } from '../auth/auth.service';
 import notificationService, { NotificationError, NotificationService } from '../notifications/notification.service';
+import logger from '../../lib/logger';
 
 export interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -28,6 +29,7 @@ function sendEvent(webSocket: WebSocket, type: string, payload: unknown): void {
   try {
     webSocket.send(JSON.stringify({ type, payload }));
   } catch (_error) {
+    logger.warn('websocket.send_failed');
     webSocket.close();
   }
 }
@@ -66,6 +68,7 @@ function handleMessage(webSocket: AuthenticatedWebSocket, data: WebSocket.RawDat
   try {
     const event = parseMessage(data);
     if (event.type === 'ping') {
+      logger.debug('websocket.ping', { userId: webSocket.userId, role: webSocket.role });
       sendEvent(webSocket, 'pong', {});
       return;
     }
@@ -86,9 +89,11 @@ function handleMessage(webSocket: AuthenticatedWebSocket, data: WebSocket.RawDat
     }
 
     void service.markAsRead((payload as { notificationId: string }).notificationId).then((notification) => {
+      logger.info('websocket.notification_read', { userId: webSocket.userId, notificationId: notification.id });
       broadcastNotificationStatusUpdated(notification.id, notification.readAt);
     }).catch((error: unknown) => sendError(webSocket, error));
   } catch (error) {
+    logger.warn('websocket.message_error', { userId: webSocket.userId, error: error instanceof NotificationError ? error.code : 'internal' });
     sendError(webSocket, error);
   }
 }
@@ -113,6 +118,7 @@ export function initializeWebSocketServer(
       void (async () => {
         const token = getToken(request);
         if (!token) {
+          logger.warn('websocket.connection_rejected', { reason: 'missing_token' });
           closeWithPolicyViolation(webSocket);
           return;
         }
@@ -125,11 +131,19 @@ export function initializeWebSocketServer(
         authenticatedWebSocket.role = payload.role;
          authenticatedWebSocket.room = 'main';
 
-         mainRoom.add(authenticatedWebSocket);
+          mainRoom.add(authenticatedWebSocket);
+          logger.info('websocket.connected', { userId: authenticatedWebSocket.userId, role: authenticatedWebSocket.role });
          authenticatedWebSocket.on('message', (data) => handleMessage(authenticatedWebSocket, data, service));
-         authenticatedWebSocket.once('close', () => mainRoom.delete(authenticatedWebSocket));
-        authenticatedWebSocket.once('error', () => mainRoom.delete(authenticatedWebSocket));
-        } catch (_error) {
+          authenticatedWebSocket.once('close', () => {
+            mainRoom.delete(authenticatedWebSocket);
+            logger.info('websocket.disconnected', { userId: authenticatedWebSocket.userId });
+          });
+         authenticatedWebSocket.once('error', () => {
+           mainRoom.delete(authenticatedWebSocket);
+           logger.warn('websocket.error', { userId: authenticatedWebSocket.userId });
+         });
+         } catch (_error) {
+          logger.warn('websocket.connection_rejected', { reason: 'authentication_failed' });
           closeWithPolicyViolation(webSocket);
         }
       })();

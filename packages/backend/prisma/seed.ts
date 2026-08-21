@@ -3,7 +3,7 @@
  *
  * Seeds the database with:
  *   - 3 default templates (Aniversariantes, Pedido de Oração, Aviso Geral)
- *   - 1 initial Administrator account  (username: admin / password: Admin@123)
+ *   - 1 initial Administrator account
  *
  * Run with: npx ts-node prisma/seed.ts
  *           — or via npm script: npm run prisma:seed
@@ -43,6 +43,8 @@ if (process.env['NODE_ENV'] === 'production' && !process.env['ADMIN_INITIAL_PASS
 async function main(): Promise<void> {
   console.log('🌱 Starting database seed...\n');
 
+  await prisma.user.updateMany({ where: { isSuperAdmin: true }, data: { isSuperAdmin: false } });
+
   // ── Default templates ────────────────────────────────────────────────────
   for (const template of DEFAULT_TEMPLATES) {
     const created = await prisma.template.upsert({
@@ -61,33 +63,31 @@ async function main(): Promise<void> {
   // ── Initial Administrator account ────────────────────────────────────────
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
+  const existingAdmin = await prisma.user.findUnique({ where: { username: ADMIN_USERNAME } });
   const admin = await prisma.user.upsert({
     where: { username: ADMIN_USERNAME },
-    update: {},
+    update: { isSuperAdmin: true },
     create: {
       username: ADMIN_USERNAME,
       passwordHash,
       role: UserRole.ADMIN,
+      isSuperAdmin: true,
       isActive: true,
     },
   });
 
   console.log(`\n  ✔ Admin user created/verified (id: ${admin.id})`);
-  console.log('\n┌─────────────────────────────────────────┐');
-  console.log('│          Initial Admin Credentials        │');
-  console.log('├─────────────────────────────────────────┤');
-  console.log(`│  Username : ${ADMIN_USERNAME.padEnd(29)}│`);
-  console.log(`│  Password : ${ADMIN_PASSWORD.padEnd(29)}│`);
-  console.log('│                                           │');
-  console.log('│  ⚠  Change this password after first     │');
-  console.log('│     login in a production environment.    │');
-  console.log('└─────────────────────────────────────────┘\n');
+  if (existingAdmin) {
+    console.log('  Existing Admin password was not changed.');
+  } else {
+    console.log('Initial Admin account verified. Retrieve credentials from the configured secret store.');
+  }
   console.log('✅ Seed completed successfully.');
 }
 
 main()
   .catch((err) => {
-    console.error('❌ Seed failed:', err);
+    console.error('Seed failed.');
     process.exit(1);
   })
   .finally(async () => {
