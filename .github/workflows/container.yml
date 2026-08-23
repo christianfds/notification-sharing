@@ -12,15 +12,24 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build ${{ matrix.arch }} image
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GitHub Container Registry
@@ -35,17 +44,63 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: suffix=-${{ matrix.arch }},onlatest=true
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
             type=ref,event=tag
-      - name: Build and publish image
+      - name: Build and publish architecture image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+  manifest:
+    name: Publish multi-architecture tags
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Publish multi-architecture manifests
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          SHA_TAG: sha-${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          IS_DEFAULT_BRANCH: ${{ github.ref == 'refs/heads/main' }}
+          IS_VERSION_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -eu
+          docker buildx imagetools create \
+            --tag "$IMAGE:$SHA_TAG" \
+            "$IMAGE:$SHA_TAG-amd64" \
+            "$IMAGE:$SHA_TAG-arm64"
+
+          if [ "$IS_DEFAULT_BRANCH" = "true" ]; then
+            docker buildx imagetools create \
+              --tag "$IMAGE:latest" \
+              "$IMAGE:latest-amd64" \
+              "$IMAGE:latest-arm64"
+          fi
+
+          if [ "$IS_VERSION_TAG" = "true" ]; then
+            docker buildx imagetools create \
+              --tag "$IMAGE:$REF_NAME" \
+              "$IMAGE:$REF_NAME-amd64" \
+              "$IMAGE:$REF_NAME-arm64"
+          fi
