@@ -77,12 +77,12 @@ Em produção o backend serve o bundle React via `express.static`.
 
 O projeto inclui uma imagem de produção e um `docker-compose.yml` para um VPS.
 O Compose executa o backend e expõe HTTP/WebSocket pela rede externa
-`traefik-public`. O banco de dados é o PostgreSQL gerenciado pelo Supabase.
+`traefik`. O banco de dados é o PostgreSQL gerenciado pelo Supabase.
 
 1. Crie a rede usada pelo seu Traefik, caso ainda não exista:
 
 ```bash
-docker network create traefik-public
+docker network create traefik
 ```
 
 2. Copie e preencha as variáveis de produção:
