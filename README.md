@@ -131,6 +131,20 @@ Depois de um novo workflow concluído, use **Pull and redeploy** para atualizar.
 Para deploy controlado, defina `IMAGE_TAG` como o tag `sha-...` publicado pelo
 workflow em vez de usar `latest`.
 
+### Atualização automática pelo Portainer
+
+Para atualizar a Stack automaticamente após cada push em `main`:
+
+1. Abra a Stack no Portainer e crie um **Webhook**. Copie a URL gerada.
+2. No GitHub, abra **Settings → Secrets and variables → Actions** e crie o
+   secret `PORTAINER_WEBHOOK_URL` com essa URL.
+3. O workflow chamará o webhook somente depois que as imagens AMD64/ARM64 e os
+   manifests forem publicados no GHCR.
+
+O `pull_policy: always` faz o Portainer verificar a imagem atualizada durante o
+redeploy. O webhook deve ser tratado como uma credencial: não o coloque no
+Compose, em issues ou em logs.
+
 ## Estrutura do projeto
 
 ```

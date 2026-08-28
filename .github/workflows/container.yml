@@ -96,3 +96,13 @@ jobs:
               "$IMAGE:$REF_NAME-amd64" \
               "$IMAGE:$REF_NAME-arm64"
           fi
+
+      - name: Trigger Portainer redeploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: |
+          set -eu
+          test -n "$PORTAINER_WEBHOOK_URL"
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+            --request POST "$PORTAINER_WEBHOOK_URL"

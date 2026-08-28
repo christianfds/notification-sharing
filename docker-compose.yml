@@ -1,6 +1,7 @@
 services:
   app:
     image: ghcr.io/christianfds/notification-sharing:${IMAGE_TAG:-latest}
+    pull_policy: always
     build:
       context: .
       dockerfile: Dockerfile
