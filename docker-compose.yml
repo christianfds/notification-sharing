@@ -25,7 +25,7 @@ services:
       - traefik.http.routers.notification-sharing.rule=Host(`${DOMAIN}`)
       - traefik.http.routers.notification-sharing.entrypoints=websecure
       - traefik.http.routers.notification-sharing.tls=true
-      - traefik.http.routers.notification-sharing.tls.certresolver=letsencrypt
+      - traefik.http.routers.notification-sharing.tls.certresolver=letsencryptresolver
       - traefik.http.services.notification-sharing.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]

@@ -106,7 +106,7 @@ execute o seed uma única vez para criar os templates e o Super Admin inicial:
 docker compose --env-file .env.production run --rm app sh -c "npx prisma db push --schema=packages/backend/prisma/schema.prisma --skip-generate && npx ts-node packages/backend/prisma/seed.ts"
 ```
 
-O resolver usado pelo Traefik está configurado como `letsencrypt`; altere o
+O resolver usado pelo Traefik está configurado como `letsencryptresolver`; altere o
 label em `docker-compose.yml` se o seu Traefik usa outro nome. O WebSocket em
 `/ws` é encaminhado pelo mesmo router HTTPS automaticamente.
 
