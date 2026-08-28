@@ -76,8 +76,8 @@ Em produção o backend serve o bundle React via `express.static`.
 ### Deploy com Docker Compose e Traefik
 
 O projeto inclui uma imagem de produção e um `docker-compose.yml` para um VPS.
-O Compose executa o backend, PostgreSQL persistente e expõe HTTP/WebSocket pela
-rede externa `traefik-public`.
+O Compose executa o backend e expõe HTTP/WebSocket pela rede externa
+`traefik-public`. O banco de dados é o PostgreSQL gerenciado pelo Supabase.
 
 1. Crie a rede usada pelo seu Traefik, caso ainda não exista:
 
@@ -99,8 +99,8 @@ docker compose --env-file .env.production build
 docker compose --env-file .env.production up -d
 ```
 
-O primeiro start aplica o schema Prisma com `prisma db push`. Depois, execute o
-seed uma única vez para criar os templates e o Super Admin inicial:
+O primeiro start aplica o schema Prisma do Supabase com `prisma db push`. Depois,
+execute o seed uma única vez para criar os templates e o Super Admin inicial:
 
 ```bash
 docker compose --env-file .env.production run --rm app sh -c "npx prisma db push --schema=packages/backend/prisma/schema.prisma --skip-generate && npx ts-node packages/backend/prisma/seed.ts"
@@ -110,8 +110,8 @@ O resolver usado pelo Traefik está configurado como `letsencrypt`; altere o
 label em `docker-compose.yml` se o seu Traefik usa outro nome. O WebSocket em
 `/ws` é encaminhado pelo mesmo router HTTPS automaticamente.
 
-Faça backup regular do volume `postgres-data` antes de atualizar ou remover a
-stack. O arquivo `.env.production` nunca deve ser versionado.
+Configure os backups e a retenção no painel do Supabase. O arquivo
+`.env.production` nunca deve ser versionado.
 
 ### Deploy pelo Portainer
 
