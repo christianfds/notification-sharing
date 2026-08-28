@@ -1,6 +1,7 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
+RUN apk add --no-cache openssl
 
 COPY package.json package-lock.json ./
 COPY packages/backend/package.json packages/backend/package.json
@@ -15,6 +16,7 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache openssl
 
 # Prisma CLI is retained because the container applies the schema on startup.
 COPY --from=build /app/node_modules ./node_modules
