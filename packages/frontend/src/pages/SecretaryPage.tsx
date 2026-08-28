@@ -130,7 +130,7 @@ export default function SecretaryPage() {
   return (
     <main className="secretary-page">
       <header className="secretary-header">
-        <div className="secretary-brand"><span className="secretary-brand-mark">NS</span><div><p>Notification Sharing</p><h1>Painel da secretaria</h1></div></div>
+        <div className="secretary-brand"><img className="secretary-brand-mark" src="/favicon.svg" alt="" aria-hidden="true" /><div><p>Notification Sharing</p><h1>Painel da secretaria</h1></div></div>
         <div className="secretary-user"><span><strong>{user?.username}</strong><small>Secretaria</small></span><button type="button" onClick={() => void logout()}>Sair</button></div>
       </header>
        <section className="secretary-intro"><div><p className="secretary-kicker">Comunicação em tempo real</p><h2>Envie um aviso com clareza.</h2><p>Crie uma notificação para o pastor e acompanhe o que foi enviado nesta sessão.</p></div><div className="secretary-stats"><div className="secretary-stat"><strong>{notifications.length}</strong><span>enviadas nesta sessão</span></div><div className="secretary-stat secretary-stat-pending"><strong>{notifications.filter((notification) => notification.readAt === null).length}</strong><span>aguardando leitura</span></div></div></section>
