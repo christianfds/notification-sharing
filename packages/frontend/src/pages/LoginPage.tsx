@@ -66,10 +66,10 @@ export default function LoginPage() {
   return (
     <main style={styles.page}>
       <section style={styles.card} aria-labelledby="login-title">
-        <div style={styles.brandMark} aria-hidden="true">NS</div>
-        <p style={styles.eyebrow}>Notification Sharing · Comunidade</p>
+        <img src="/favicon.svg" alt="" aria-hidden="true" style={styles.brandMark} />
+        <p style={styles.eyebrow}>Notification Sharing</p>
         <h1 id="login-title" style={styles.title}>Entrar</h1>
-        <p style={styles.subtitle}>Acesse o painel da sua comunidade.</p>
+        <p style={styles.subtitle}>Acesse o painel de notificações.</p>
 
         <form onSubmit={handleSubmit} style={styles.form} noValidate>
           <label style={styles.label} htmlFor="username">Nome de usuário</label>
@@ -111,7 +111,7 @@ export default function LoginPage() {
 const styles: Record<string, CSSProperties> = {
   page: { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px', background: 'radial-gradient(circle at 85% 0%, #dcece5 0, transparent 32rem), #f5f7f6', color: '#17212b', fontFamily: 'system-ui, sans-serif' },
   card: { width: '100%', maxWidth: '420px', padding: 'clamp(24px, 6vw, 40px)', background: 'rgba(255,255,255,.92)', border: '1px solid #dde6e2', borderRadius: '16px', boxShadow: '0 12px 35px rgba(35, 68, 60, .10)' },
-  brandMark: { width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '12px', background: '#174f47', color: '#fff', fontWeight: 800, letterSpacing: '0.04em' },
+  brandMark: { display: 'block', width: '44px', height: '44px', borderRadius: '12px' },
   eyebrow: { margin: '18px 0 8px', color: '#59716b', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' },
   title: { margin: 0, color: '#173d39', fontFamily: 'Georgia, serif', fontSize: '2.5rem', fontWeight: 500, letterSpacing: '-.04em' },
   subtitle: { margin: '10px 0 28px', color: '#61716e' },
